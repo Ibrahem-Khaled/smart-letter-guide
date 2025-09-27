@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 export function Blackboard({ traceLetter }: { traceLetter: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [showCapital, setShowCapital] = useState(true);
 
   useEffect(() => {
     const ctx = canvasRef.current?.getContext('2d');
@@ -24,10 +25,13 @@ export function Blackboard({ traceLetter }: { traceLetter: string }) {
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(79, 172, 254, 0.8)';
     ctx.shadowBlur = 15;
-    ctx.fillText((traceLetter || 'A').toUpperCase(), ctx.canvas.width / 2, ctx.canvas.height / 2 + 50);
+    
+    // Show the appropriate case
+    const letterToShow = showCapital ? traceLetter.toUpperCase() : traceLetter.toLowerCase();
+    ctx.fillText(letterToShow, ctx.canvas.width / 2, ctx.canvas.height / 2 + 50);
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
-  }, [traceLetter]);
+  }, [traceLetter, showCapital]);
 
   const onDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDrawing(true);
@@ -77,7 +81,10 @@ export function Blackboard({ traceLetter }: { traceLetter: string }) {
     ctx.textAlign = 'center';
     ctx.shadowColor = 'rgba(79, 172, 254, 0.8)';
     ctx.shadowBlur = 15;
-    ctx.fillText((traceLetter || 'A').toUpperCase(), ctx.canvas.width / 2, ctx.canvas.height / 2 + 50);
+    
+    // Show the appropriate case
+    const letterToShow = showCapital ? traceLetter.toUpperCase() : traceLetter.toLowerCase();
+    ctx.fillText(letterToShow, ctx.canvas.width / 2, ctx.canvas.height / 2 + 50);
     ctx.shadowBlur = 0;
     ctx.globalAlpha = 1;
   };
@@ -95,9 +102,23 @@ export function Blackboard({ traceLetter }: { traceLetter: string }) {
         onMouseLeave={onUp}
       />
       <div className="mt-4">
-        <button className="btn btn-accent" onClick={clearBoard}>
-          🧹 مسح السبورة
-        </button>
+        <div className="blackboard-controls">
+          <button 
+            className={`btn ${showCapital ? 'btn-primary' : 'btn-accent'}`} 
+            onClick={() => setShowCapital(true)}
+          >
+            🔤 كبير (Capital)
+          </button>
+          <button 
+            className={`btn ${!showCapital ? 'btn-primary' : 'btn-accent'}`} 
+            onClick={() => setShowCapital(false)}
+          >
+            🔡 صغير (Small)
+          </button>
+          <button className="btn btn-accent" onClick={clearBoard}>
+            🧹 مسح السبورة
+          </button>
+        </div>
       </div>
     </div>
   );

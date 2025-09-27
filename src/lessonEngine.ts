@@ -45,6 +45,11 @@ export class LessonEngine {
       return await listenOnceLocal(ms);
     };
     const exclusive = (fn: () => void) => { this.ui.clearVisuals(); fn(); };
+    const askReady = async (): Promise<boolean> => {
+      await say('هل أنتم جاهزون للانتقال للجزء التالي؟ قولوا: جاهز.');
+      const ans = (await awaitAnswer(7000)).toLowerCase();
+      return /(جاهز|جاهزين|نعم|ايوه|ايوا|اوه)/i.test(ans);
+    };
     const practiceRepeat = async ({
       modelUtterance,
       repeatPrompt,
@@ -94,7 +99,8 @@ export class LessonEngine {
     };
 
     // 1) Intro
-    await say('مرحبًا يا أطفالي! أنا الروبوت كذا.');
+    await say('مرحبًا يا أطفالي! أنا روبوت منصة تعليم الحروف.');
+    await say('أنا هنا علشان أعلّمكم الحروف باللعب والصوت والرسومات.');
     await say('اليوم سنأخذ درسًا جديدًا، حد يعرف هنأخذ إيه النهاردة؟');
     const introResp = (await awaitAnswer(6000)).trim();
     if (!introResp || /لا\s*نعرف|مش\s*عارفين|ما\s*نعرف/i.test(introResp)) {
@@ -125,6 +131,7 @@ export class LessonEngine {
       waitMs: 6000,
     });
     await say('أحسنتم يا أطفالي!');
+    if (!(await askReady())) await say('سننتقل الآن بهدوء للجزء التالي.');
 
     // 3) Quiz letter recognition
     exclusive(() => this.ui.showLetter(this.letter));
@@ -142,7 +149,9 @@ export class LessonEngine {
       }
     }
 
-    // 4) Capital vs Small
+    if (!(await askReady())) await say('ممتاز! نكمل سويًا.');
+
+    // 4) Capital vs Small with writing plan
     exclusive(() => this.ui.showBoth(this.letter, assets.capital, assets.small));
     for (let i = 0; i < 5; i++) {
       await say(`هذا اسمه ${this.letter} Capital يعني كبير.`);
@@ -161,6 +170,7 @@ export class LessonEngine {
     } else {
       await say('حاول مرة أخرى.');
     }
+    if (!(await askReady())) await say('استعدوا للكتابة على السبورة.');
 
     // 5) Writing
     exclusive(() => this.ui.showBlackboard(this.letter));
@@ -169,6 +179,11 @@ export class LessonEngine {
     await say('ممتاز! من سيكتب الحرف على السبورة؟');
     await awaitAnswer(6000);
     await say('والآن اكتبوه وحدكم على السبورة الخالية.');
+    await awaitAnswer(6000);
+    // Ask to write capital then small explicitly
+    await say('اكتبوا الحرف بشكل كبير Capital.');
+    await awaitAnswer(6000);
+    await say('اكتبوه الآن بشكل صغير Small.');
     await awaitAnswer(6000);
 
     // 6) Post writing questions
@@ -181,8 +196,14 @@ export class LessonEngine {
     await awaitAnswer(6000);
     if (q1.includes(this.letter)) await say('أحسنت!'); else await say('حاول مرة أخرى.');
 
-    // 7) Words
-    exclusive(() => this.ui.showWords(assets.words));
+    if (!(await askReady())) await say('لنشاهد كلمات وصور تبدأ بهذا الحرف.');
+
+    // 7) Words (+ AI images placeholder URLs via public services)
+    const wordsWithImages = assets.words.map((w) => ({
+      ...w,
+      image: `https://source.unsplash.com/featured/400x300?${encodeURIComponent(w.word)}`
+    }));
+    exclusive(() => this.ui.showWords(wordsWithImages));
     await say(`كلمة ${assets.words[0].word} تعني ${assets.words[0].arabic}.`);
     await say(`وكلمة ${assets.words[1].word} تعني ${assets.words[1].arabic}.`);
     await say(`${this.letter} ${assets.words[0].word} ${assets.words[0].arabic}`);
@@ -200,6 +221,7 @@ export class LessonEngine {
     if (wAns) await say('أحسنت!'); else await say('حاول مرة أخرى.');
 
     // 8) Final quiz
+    if (!(await askReady())) await say('جاهزين للاختبار النهائي؟');
     await say(`ما هو صوت حرف ${this.letter}؟`);
     await awaitAnswer(6000);
     exclusive(() => this.ui.showLetter(this.letter));
@@ -209,6 +231,7 @@ export class LessonEngine {
     await awaitAnswer(7000);
     if (f1.includes(this.letter)) await say('رائع!'); else await say('حاول مرة أخرى.');
 
+    if (!(await askReady())) await say('حان وقت الأغنية!');
     // 9) Song
     exclusive(() => this.ui.showSong(assets.songUrl));
     await say(`هيا يا أطفالي لنستمع إلى أغنية لحرف ${this.letter}!`);
