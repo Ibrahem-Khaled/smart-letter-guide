@@ -2,6 +2,35 @@ import { VoiceSdkClient } from './voiceSdkClient';
 import { LETTERS } from './letters';
 import { speakLocal, listenOnceLocal } from './speech';
 
+const SOUND_EXAMPLES: Record<string, string> = {
+  A: 'إيه', // صوت الحرف A
+  B: 'بيه', // صوت الحرف B
+  C: 'سيه', // صوت الحرف C
+  D: 'ديه', // صوت الحرف D
+  E: 'إي', // صوت الحرف E
+  F: 'إف', // صوت الحرف F
+  G: 'جيه', // صوت الحرف G
+  H: 'إيتش', // صوت الحرف H
+  I: 'آي', // صوت الحرف I
+  J: 'جيه', // صوت الحرف J
+  K: 'كيه', // صوت الحرف K
+  L: 'إل', // صوت الحرف L
+  M: 'إم', // صوت الحرف M
+  N: 'إن', // صوت الحرف N
+  O: 'أو', // صوت الحرف O
+  P: 'بيه', // صوت الحرف P
+  Q: 'كيو', // صوت الحرف Q
+  R: 'آر', // صوت الحرف R
+  S: 'إس', // صوت الحرف S
+  T: 'تي', // صوت الحرف T
+  U: 'يو', // صوت الحرف U
+  V: 'في', // صوت الحرف V
+  W: 'دبليو', // صوت الحرف W
+  X: 'إكس', // صوت الحرف X
+  Y: 'واي', // صوت الحرف Y
+  Z: 'زد', // صوت الحرف Z
+};
+
 export type LessonStep =
   | 'intro'
   | 'letter_sound'
@@ -36,6 +65,7 @@ export class LessonEngine {
 
   async run(): Promise<void> {
     const assets = LETTERS[this.letter] || LETTERS['A'];
+    const letterSound = SOUND_EXAMPLES[this.letter] || this.letter.toLowerCase();
     const say = async (text: string) => {
       try { await this.client.speak(text); } catch { await speakLocal(text); }
     };
@@ -118,16 +148,20 @@ export class LessonEngine {
 
     // 2) Letter sound
     exclusive(() => this.ui.showLetter(this.letter));
-    await say(`تعرفوا يا أطفالي أن حرف ${this.letter} له صوت مميز؟`);
+    await say(`ركزوا معايا: اسم الحرف هو ${this.letter}.`);
+    await say('لكن لما ندخله جوه الكلمات بنحتاج صوته مش بس اسمه.');
+    await say(`صوت حرف ${this.letter} هو: ${letterSound}. حاولوا تركزوا في الفرق.`);
     if (assets.soundUrl) {
-      await say('استمعوا جيدًا لصوت الحرف.');
+      await say('استمعوا للتسجيل الجاهز لصوت الحرف وبعدين هنكرر سوا.');
     } else {
-      await say(`صوته مثل: ${this.letter}`);
+      await say(`هسمعكم الصوت: ${letterSound}. جاهزين؟`);
     }
     await practiceRepeat({
-      modelUtterance: assets.soundUrl ? 'ركزوا على الصوت واستعدوا للإعادة.' : `${this.letter}`,
-      repeatPrompt: 'قل الصوت الآن.',
-      validate: (answer) => answer.toUpperCase().includes(this.letter),
+      modelUtterance: assets.soundUrl ? 'استمعوا ثم كرروا الصوت.' : `${letterSound}`,
+      repeatPrompt: 'قولوا صوت الحرف الآن.',
+      validate: (answer) =>
+        answer.toLowerCase().includes(letterSound.toLowerCase()) ||
+        answer.toUpperCase().includes(this.letter),
       waitMs: 6000,
     });
     await say('أحسنتم يا أطفالي!');
@@ -153,17 +187,15 @@ export class LessonEngine {
 
     // 4) Capital vs Small with writing plan
     exclusive(() => this.ui.showBoth(this.letter, assets.capital, assets.small));
-    for (let i = 0; i < 5; i++) {
-      await say(`هذا اسمه ${this.letter} Capital يعني كبير.`);
-    }
-    await say('رددوا معي.');
+    await say(`بصوا على الشاشة: حرف ${this.letter} بيتكوّن من شكلين.`);
+    await say(`على الشمال شايفين ${assets.capital}. ده الشكل الكبير ونسميه Capital.`);
+    await say('قولوا معايا: الكبير على الشمال.');
     await awaitAnswer(6000);
-    for (let i = 0; i < 5; i++) {
-      await say(`وهذا اسمه ${this.letter} Small يعني صغير.`);
-    }
-    await say('رددوا معي.');
+    await say(`وعلى اليمين شايفين ${assets.small}. ده الشكل الصغير ونسميه Small.`);
+    await say('قولوا معايا: الصغير على اليمين.');
     await awaitAnswer(6000);
-    await say('مين يعرف يقولها لوحده؟');
+    await say(`يبقى حرف ${this.letter} بيتكوّن من Capital كبير على الشمال و Small صغير على اليمين.`);
+    await say('مين يقدر يعيدها بطريقته؟');
     const csAns = await awaitAnswer(6000);
     if (/(capital|كابيتال|كبير)/i.test(csAns) && /(small|صمول|صغير)/i.test(csAns)) {
       await say('أحسنت!');
@@ -204,11 +236,10 @@ export class LessonEngine {
       image: `https://source.unsplash.com/featured/400x300?${encodeURIComponent(w.word)}`
     }));
     exclusive(() => this.ui.showWords(wordsWithImages));
-    await say(`كلمة ${assets.words[0].word} تعني ${assets.words[0].arabic}.`);
-    await say(`وكلمة ${assets.words[1].word} تعني ${assets.words[1].arabic}.`);
-    await say(`${this.letter} ${assets.words[0].word} ${assets.words[0].arabic}`);
-    await say(`${this.letter} ${assets.words[1].word} ${assets.words[1].arabic}`);
+    await say(`دلوقتي هنتعرف على كلمات جديدة بتبدأ بحرف ${this.letter} ومعناها بالعربي.`);
     for (const word of assets.words) {
+      await say(`كلمة ${word.word} يعني ${word.arabic}.`);
+      await say(`بتنطق كده: ${this.letter} ${word.word}. جربوا تقولوا ${word.word}.`);
       await practiceRepeat({
         modelUtterance: `قولوا معي كلمة ${word.word}.`,
         repeatPrompt: `كرروا كلمة ${word.word}.`,

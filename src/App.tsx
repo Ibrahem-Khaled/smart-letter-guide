@@ -3,6 +3,14 @@ import { VoiceSdkClient } from './voiceSdkClient';
 // import { LessonEngine } from './lessonEngine';
 import { LETTERS } from './letters';
 import { Robot3D } from './components/Robot3D';
+import { Blackboard } from './Blackboard';
+import Particles from './components/Particles';
+import { BalloonsGame } from './components/BalloonsGame';
+import { MultipleChoiceGame } from './components/MultipleChoiceGame';
+import { ImageUpload } from './components/ImageUpload';
+import { WordImageUpload } from './components/WordImageUpload';
+import { AudioRecorder } from './components/AudioRecorder';
+
 
 function toYouTubeEmbedUrl(raw: string): string | null {
   try {
@@ -51,7 +59,6 @@ function toYouTubeEmbedUrl(raw: string): string | null {
     return null;
   }
 }
-import { Blackboard } from './Blackboard';
 
 export default function App() {
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
@@ -61,18 +68,26 @@ export default function App() {
   const [message, setMessage] = useState<string | undefined>(undefined);
   const audioRef = useRef<HTMLAudioElement>(null);
   const clientRef = useRef<VoiceSdkClient | null>(null);
-  const [letter, setLetter] = useState<'A'|'B'|'C'>('A');
+  const [letter, setLetter] = useState<'A' | 'B' | 'C'>('A');
   const [showBoth, setShowBoth] = useState(false);
   const [showBoard, setShowBoard] = useState(false);
   const [showWords, setShowWords] = useState(false);
+  const [showImageSelection, setShowImageSelection] = useState(false);
   const [words, setWords] = useState(LETTERS['A'].words);
   const [, setSongUrl] = useState<string | undefined>(undefined);
   const [youtubeUrl, setYoutubeUrl] = useState<string>('https://www.youtube.com/embed/1dfXcN3VJxE');
   const normalizedYoutubeUrl = toYouTubeEmbedUrl(youtubeUrl) || youtubeUrl;
   const [showControlModal, setShowControlModal] = useState(false);
   const [hasContent, setHasContent] = useState(false);
+  const [showGameSelection, setShowGameSelection] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<'balloons' | 'multiple-choice' | null>(null);
+  const [letterImages, setLetterImages] = useState<Record<string, { capitalImage?: string; smallImage?: string }>>({});
+  const [wordImages, setWordImages] = useState<Record<string, Record<string, string>>>({});
+  const [letterRecordings, setLetterRecordings] = useState<Record<string, string>>({});
+  const [letterRepetitionCount, setLetterRepetitionCount] = useState<Record<string, number>>({});
+  const [isWaitingForStudentResponse, setIsWaitingForStudentResponse] = useState(false);
   // lesson stage tracking for progress bar and gating song to final stage
-  type StageKey = 'intro' | 'words' | 'writing' | 'song' | 'outro';
+  type StageKey = 'intro' | 'words' | 'writing' | 'song' | 'outro' | 'image-selection';
   const stageOrder: StageKey[] = ['intro', 'words', 'writing', 'song', 'outro'];
   const [stage, setStage] = useState<StageKey>('intro');
   const stageIndex = stageOrder.indexOf(stage);
@@ -83,6 +98,7 @@ export default function App() {
     writing: 'كتابة',
     song: 'أغنية',
     outro: 'ختام',
+    'image-selection': 'اختيار الصور',
   };
 
   const applyStageVisuals = (targetStage: StageKey) => {
@@ -90,6 +106,8 @@ export default function App() {
     setShowBoth(targetStage === 'intro');
     setShowWords(targetStage === 'words');
     setShowBoard(targetStage === 'writing');
+    setShowGameSelection(targetStage === 'outro');
+    setSelectedGame(null);
     setSongUrl(() => {
       if (targetStage === 'song') {
         // Always use the current youtubeUrl from settings, not cached songUrl
@@ -125,8 +143,8 @@ export default function App() {
       case 'outro':
       default:
         return {
-          prompt: `من فضلك نفّذ مرحلة الختام والتقييم للحرف ${letter} الآن.`,
-          fallback: `انتقلت إلى مرحلة الختام لحرف ${letter}. عند الاتصال سيقود الروبوت التقييم.`,
+          prompt: `من فضلك نفّذ مرحلة الختام والتقييم للحرف ${letter} الآن. قدم للأطفال خيارين للعب: لعبة البالونات أو لعبة الاختيارات.`,
+          fallback: `انتقلت إلى مرحلة الختام لحرف ${letter}. عند الاتصال سيقود الروبوت التقييم ويقدم خيارات الألعاب.`,
         };
     }
   };
@@ -146,7 +164,7 @@ export default function App() {
 
   useEffect(() => {
     return () => {
-      clientRef.current?.disconnect().catch(() => {});
+      clientRef.current?.disconnect().catch(() => { });
     };
   }, []);
 
@@ -155,68 +173,119 @@ export default function App() {
     try {
       setStatus('connecting');
       const client = new VoiceSdkClient();
+      client.attachAudioElement(audioRef.current);
       client.setUiHooks({
-        clearVisuals: () => { 
-          setShowBoth(false); 
-          setShowBoard(false); 
-          setShowWords(false); 
-          setSongUrl(undefined); 
+        clearVisuals: () => {
+          setShowBoth(false);
+          setShowBoard(false);
+          setShowWords(false);
+          setShowGameSelection(false);
+          setSelectedGame(null);
+          setSongUrl(undefined);
           setHasContent(false);
           // do not change stage here
         },
         showLetter: (L) => { setMessage(`الحرف ${L}`); setHasContent(true); setStage('intro'); },
-        showBoth: () => { 
-          setShowBoth(true); 
-          setShowBoard(false); 
-          setShowWords(false); 
-          setSongUrl(undefined); 
+        showBoth: () => {
+          setShowBoth(true);
+          setShowBoard(false);
+          setShowWords(false);
+          setShowGameSelection(false);
+          setSelectedGame(null);
+          setSongUrl(undefined);
           setHasContent(true);
           setStage('intro');
         },
-        showBlackboard: () => { 
-          setShowBoard(true); 
-          setShowBoth(false); 
-          setShowWords(false); 
-          setSongUrl(undefined); 
+        showBlackboard: () => {
+          setShowBoard(true);
+          setShowBoth(false);
+          setShowWords(false);
+          setShowGameSelection(false);
+          setSelectedGame(null);
+          setSongUrl(undefined);
           setHasContent(true);
           setStage('writing');
         },
-        showWords: (ws) => { 
-          setWords(ws); 
-          setShowWords(true); 
-          setShowBoth(false); 
-          setShowBoard(false); 
-          setSongUrl(undefined); 
+        showWords: (ws) => {
+          setWords(ws);
+          setShowWords(true);
+          setShowBoth(false);
+          setShowBoard(false);
+          setShowGameSelection(false);
+          setSelectedGame(null);
+          setSongUrl(undefined);
           setHasContent(true);
           setStage('words');
         },
-        showSong: (url) => { 
-          setSongUrl(url); 
-          setShowBoth(false); 
-          setShowBoard(false); 
-          setShowWords(false); 
+        showSong: (url) => {
+          setSongUrl(url);
+          setShowBoth(false);
+          setShowBoard(false);
+          setShowWords(false);
+          setShowGameSelection(false);
+          setSelectedGame(null);
           setHasContent(true);
           setStage('song');
         },
+        showGameSelection: () => {
+          setShowGameSelection(true);
+          setShowBoth(false);
+          setShowBoard(false);
+          setShowWords(false);
+          setSongUrl(undefined);
+          setSelectedGame(null);
+          setHasContent(true);
+          setStage('outro');
+        },
         setLetter: (L) => { const U = (L.toUpperCase() as keyof typeof LETTERS); if (LETTERS[U]) { setLetter(U as any); setWords(LETTERS[U].words); } },
+        updateRepetitionCount: (letter: string, count: number) => {
+          updateLetterRepetitionCount(letter, count);
+        },
+        resetRepetitionCount: (letter: string) => {
+          resetLetterRepetitionCount(letter);
+        },
+        playLetterRecording: async (letter: string) => {
+          await playLetterRecordingForLetter(letter);
+        },
+        waitForStudentResponse: async ({ timeoutMs }: { timeoutMs?: number } = {}) => {
+          const effectiveTimeout = typeof timeoutMs === 'number' ? timeoutMs : 8000;
+          setIsWaitingForStudentResponse(true);
+          try {
+            const response = await clientRef.current?.awaitUserSpeech(effectiveTimeout);
+            return response || '';
+          } finally {
+            setIsWaitingForStudentResponse(false);
+          }
+        },
         // helpers for tools that pass only letter
-        ...( {
-          showWordsForLetter: (L: string) => { 
-            const U = L.toUpperCase() as keyof typeof LETTERS; 
-            setWords(LETTERS[U]?.words || []); 
-            setShowWords(true); 
-            setShowBoth(false); 
-            setShowBoard(false); 
-            setSongUrl(undefined); 
+        ...({
+          showWordsForLetter: (L: string) => {
+            const U = L.toUpperCase() as keyof typeof LETTERS;
+            setWords(LETTERS[U]?.words || []);
+            setShowWords(true);
+            setShowBoth(false);
+            setShowBoard(false);
+            setSongUrl(undefined);
             setHasContent(true);
             setStage('words');
           },
-          showSongForLetter: (L: string) => { 
-            const U = L.toUpperCase() as keyof typeof LETTERS; 
-            setSongUrl(LETTERS[U]?.songUrl); 
-            setShowBoth(false); 
-            setShowBoard(false); 
-            setShowWords(false); 
+          showImageSelectionForLetter: (L: string) => {
+            const U = L.toUpperCase() as keyof typeof LETTERS;
+            setWords(LETTERS[U]?.words || []);
+            setShowWords(false);
+            setShowBoth(false);
+            setShowBoard(false);
+            setShowImageSelection(true);
+            setSongUrl(undefined);
+            setHasContent(true);
+            setStage('image-selection');
+          },
+          showSongForLetter: (L: string) => {
+            const U = L.toUpperCase() as keyof typeof LETTERS;
+            setSongUrl(LETTERS[U]?.songUrl);
+            setShowBoth(false);
+            setShowBoard(false);
+            setShowWords(false);
             setHasContent(true);
             setStage('song');
           },
@@ -248,8 +317,164 @@ export default function App() {
     setMic(next);
   };
 
+  const updateLetterImage = (letter: string, type: 'capital' | 'small', imagePath: string | null) => {
+    setLetterImages(prev => ({
+      ...prev,
+      [letter]: {
+        ...prev[letter],
+        [`${type}Image`]: imagePath || undefined
+      }
+    }));
+  };
+
+  const getLetterImage = (letter: string, type: 'capital' | 'small'): string | undefined => {
+    return letterImages[letter]?.[`${type}Image`];
+  };
+
+  const updateWordImage = (letter: string, word: string, imagePath: string | null) => {
+    setWordImages(prev => ({
+      ...prev,
+      [letter]: {
+        ...prev[letter],
+        [word]: imagePath || ''
+      }
+    }));
+  };
+
+  const getWordImage = (letter: string, word: string): string | undefined => {
+    return wordImages[letter]?.[word];
+  };
+
+  const updateLetterRecording = (letter: string, audioBlob: Blob | null) => {
+    if (audioBlob) {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      setLetterRecordings(prev => ({
+        ...prev,
+        [letter]: audioUrl
+      }));
+    } else {
+      setLetterRecordings(prev => {
+        const newRecordings = { ...prev };
+        if (newRecordings[letter]) {
+          URL.revokeObjectURL(newRecordings[letter]);
+          delete newRecordings[letter];
+        }
+        return newRecordings;
+      });
+    }
+  };
+
+  const getLetterRecording = (letter: string): string | undefined => {
+    return letterRecordings[letter];
+  };
+
+  const hasLetterRecording = (letter: string): boolean => {
+    return !!letterRecordings[letter];
+  };
+
+  const getLetterRepetitionCount = (letter: string): number => {
+    return letterRepetitionCount[letter] || 0;
+  };
+
+  const updateLetterRepetitionCount = (letter: string, count: number) => {
+    setLetterRepetitionCount(prev => ({
+      ...prev,
+      [letter]: count
+    }));
+  };
+
+  const resetLetterRepetitionCount = (letter: string) => {
+    setLetterRepetitionCount(prev => ({
+      ...prev,
+      [letter]: 0
+    }));
+  };
+
+  const playLetterRecordingForLetter = async (letter: string) => {
+    const recordingUrl = getLetterRecording(letter);
+    if (recordingUrl && clientRef.current) {
+      await clientRef.current.waitForAgentSilence?.(2000);
+      await new Promise(resolve => setTimeout(resolve, 250));
+      await clientRef.current.playLetterRecording(recordingUrl);
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+  };
+
+
+
+
+  // Image Selection Game
+  const generateImageSelectionOptions = (currentLetter: string) => {
+    const currentLetterWords = LETTERS[currentLetter]?.words || [];
+
+    const correctWord = currentLetterWords[0];
+    const correctOption = correctWord ? {
+      word: correctWord.word,
+      arabic: correctWord.arabic,
+      image: getWordImage(currentLetter, correctWord.word) || correctWord.image,
+      isCorrect: true,
+    } : null;
+
+    const otherLetters = Object.keys(LETTERS).filter(l => l !== currentLetter);
+    const incorrectOptions: Array<{ word: string; arabic: string; image?: string; isCorrect: false; id: string }> = [];
+
+    while (incorrectOptions.length < 3 && otherLetters.length) {
+      const randomLetter = otherLetters[Math.floor(Math.random() * otherLetters.length)];
+      const words = LETTERS[randomLetter].words;
+      if (words?.length) {
+        const randomWord = words[Math.floor(Math.random() * words.length)];
+        incorrectOptions.push({
+          word: randomWord.word,
+          arabic: randomWord.arabic,
+          image: getWordImage(randomLetter, randomWord.word) || randomWord.image,
+          isCorrect: false,
+          id: `${randomLetter}-${randomWord.word}`,
+        });
+      } else {
+        otherLetters.splice(otherLetters.indexOf(randomLetter), 1);
+      }
+    }
+
+    const options = correctOption ? [
+      { ...correctOption, id: `${currentLetter}-${correctOption.word}` },
+      ...incorrectOptions,
+    ] : incorrectOptions.map((opt, index) => ({ ...opt, id: opt.id ?? `incorrect-${index}` }));
+
+    return options.map(opt => opt.id ? opt : { ...opt, id: `${opt.word}-${opt.arabic}` }).sort(() => Math.random() - 0.5);
+  };
+
+  const [imageSelectionState, setImageSelectionState] = useState<{ status: 'idle' | 'correct' | 'incorrect'; selectedId?: string }>({ status: 'idle' });
+
+  const handleImageSelection = (option: any) => {
+    if (imageSelectionState.status !== 'idle') return;
+    if (option.isCorrect) {
+      setImageSelectionState({ status: 'correct', selectedId: option.id });
+      setTimeout(() => {
+        setImageSelectionState({ status: 'idle', selectedId: undefined });
+        setShowImageSelection(false);
+        setStage('writing');
+        handleStageSelect('writing');
+      }, 1200);
+    } else {
+      setImageSelectionState({ status: 'incorrect', selectedId: option.id });
+      setTimeout(() => {
+        setImageSelectionState({ status: 'idle', selectedId: undefined });
+      }, 1000);
+    }
+  };
+
   return (
     <div className="app">
+      <Particles
+        particleColors={['#ffffff', '#ffffff']}
+        particleCount={200}
+        particleSpread={10}
+        speed={0.1}
+        particleBaseSize={100}
+        moveParticlesOnHover={true}
+        alphaParticles={false}
+        disableRotation={false}
+      />
       {/* Header - Glass design with inline settings */}
       <div className="header glass-lg">
         <div className="header-content">
@@ -258,7 +483,15 @@ export default function App() {
             <p className="subtitle">تعليم الحروف الإنجليزية باستخدام ذكاء اصطناعي صوتي تفاعلي</p>
           </div>
           <div className="header-actions">
-            <button 
+            <button
+              className="btn btn-accent header-mic-btn"
+              onClick={toggleMic}
+              disabled={status !== 'connected'}
+              aria-label={mic ? 'كتم المايكروفون' : 'تشغيل المايكروفون'}
+            >
+              {mic ? '🔇 كتم المايك' : '🎤 تشغيل المايك'}
+            </button>
+            <button
               className="btn btn-primary header-settings-btn"
               onClick={() => setShowControlModal(true)}
               aria-label="فتح لوحة التحكم"
@@ -296,7 +529,9 @@ export default function App() {
       <div className={`main-content ${hasContent ? 'has-content' : ''}`}>
         {/* Robot Section - Central when no content, side when content */}
         <div className={`robot-section ${hasContent ? 'side-position' : 'center-position'}`}>
-          <Robot3D speaking={isSpeaking} message={message} />
+          <div className="robot-section-inner">
+            <Robot3D speaking={isSpeaking} message={message} />
+          </div>
         </div>
 
         {/* Content Area - Only visible when there's content */}
@@ -305,14 +540,75 @@ export default function App() {
             {showBoth && (
               <div className="content-panel animate-scaleIn">
                 <h3 className="content-title">الأشكال المختلفة للحرف {letter}</h3>
+                
+                {/* Repetition Progress */}
+                {stage === 'intro' && (
+                  <div className="repetition-progress">
+                    <div className="progress-header">
+                      <h4 className="progress-title">🎯 مرحلة تكرار النطق</h4>
+                      <div className="progress-counter">
+                        {getLetterRepetitionCount(letter)} / 5
+                      </div>
+                    </div>
+                    
+                    <div className="progress-bars">
+                      {[1, 2, 3, 4, 5].map((step) => (
+                        <div 
+                          key={step}
+                          className={`progress-bar-step ${step <= getLetterRepetitionCount(letter) ? 'completed' : ''}`}
+                        >
+                          <div className="step-number">{step}</div>
+                          <div className="step-indicator">
+                            {step <= getLetterRepetitionCount(letter) ? '✅' : '⏳'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {isWaitingForStudentResponse && (
+                      <div className="waiting-indicator">
+                        <div className="waiting-icon">🎤</div>
+                        <div className="waiting-text">نستمع لرد الطلاب...</div>
+                      </div>
+                    )}
+
+                    {getLetterRepetitionCount(letter) >= 5 && (
+                      <div className="completion-message">
+                        <div className="completion-icon">🎉</div>
+                        <div className="completion-text">ممتاز! أكملت نطق الحرف 5 مرات</div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 <div className="both-letters-container">
                   <div className="letter-variant">
-                    <div className="variant-label">كبير</div>
-                    <div className="variant-letter">{LETTERS[letter].capital}</div>
+                    <div className="variant-label">صغير</div>
+                    {getLetterImage(letter, 'small') ? (
+                      <div className="variant-image">
+                        <img 
+                          src={getLetterImage(letter, 'small')} 
+                          alt={`حرف ${letter} صغير`}
+                          className="letter-image"
+                        />
+                      </div>
+                    ) : (
+                      <div className="variant-letter">{LETTERS[letter].small}</div>
+                    )}
                   </div>
                   <div className="letter-variant">
-                    <div className="variant-label">صغير</div>
-                    <div className="variant-letter">{LETTERS[letter].small}</div>
+                    <div className="variant-label">كبير</div>
+                    {getLetterImage(letter, 'capital') ? (
+                      <div className="variant-image">
+                        <img 
+                          src={getLetterImage(letter, 'capital')} 
+                          alt={`حرف ${letter} كبير`}
+                          className="letter-image"
+                        />
+                      </div>
+                    ) : (
+                      <div className="variant-letter">{LETTERS[letter].capital}</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -321,8 +617,8 @@ export default function App() {
             {showBoard && (
               <div className="content-panel animate-scaleIn">
                 <h3 className="content-title">✏️ سبورة الكتابة</h3>
-                <Blackboard 
-                  traceLetter={letter} 
+                <Blackboard
+                  traceLetter={letter}
                   onClearBoard={async () => {
                     if (status === 'connected' && clientRef.current) {
                       const encouragements = [
@@ -351,12 +647,51 @@ export default function App() {
               <div className="content-panel animate-fadeInUp">
                 <h3 className="content-title">📖 كلمات تبدأ بحرف {letter}</h3>
                 <div className="words-grid">
-                  {words.map((w, i) => (
-                    <div key={i} className="word-card">
-                      <div className="word-english">{w.word}</div>
-                      <div className="word-arabic">{w.arabic}</div>
-                    </div>
-                  ))}
+                  {words.map((w, i) => {
+                    const customImage = getWordImage(letter, w.word);
+                    const displayImage = customImage || w.image;
+                    
+                    return (
+                      <div key={i} className="word-card">
+                        {displayImage && (
+                          <div className="word-image-container">
+                            <img src={displayImage} alt={w.word} className="word-image" />
+                          </div>
+                        )}
+                        <div className="word-english">{w.word}</div>
+                        <div className="word-arabic">{w.arabic}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {showImageSelection && (
+              <div className="content-panel animate-fadeInUp">
+                <h3 className="content-title">🎯 اختر الصورة التي تبدأ بحرف {letter}</h3>
+                <div className="image-selection-grid">
+                  {generateImageSelectionOptions(letter).map((option, i) => {
+                    const isSelected = imageSelectionState.selectedId === option.id;
+                    const statusClass = imageSelectionState.status === 'correct' && isSelected
+                      ? 'correct'
+                      : imageSelectionState.status === 'incorrect' && isSelected
+                        ? 'incorrect'
+                        : '';
+                    return (
+                      <div 
+                        key={option.id ?? i}
+                        className={`image-selection-card ${statusClass}`}
+                        onClick={() => handleImageSelection(option)}
+                      >
+                        <div className="image-selection-container">
+                          <img src={option.image} alt={option.word} className="image-selection-image" />
+                        </div>
+                        <div className="image-selection-word">{option.word}</div>
+                        <div className="image-selection-arabic">{option.arabic}</div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -365,28 +700,82 @@ export default function App() {
               <div className="content-panel animate-scaleIn">
                 <h3 className="content-title">🎵 أغنية الحرف {letter}</h3>
                 <div className="song-container">
-            <iframe 
-              className="song-iframe"
-              width="560" 
-              height="315" 
-              src={normalizedYoutubeUrl} 
-              title="Letter Song" 
-              frameBorder={0} 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen 
-            />
+                  <iframe
+                    className="song-iframe"
+                    width="560"
+                    height="315"
+                    src={normalizedYoutubeUrl}
+                    title="Letter Song"
+                    frameBorder={0}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
                 </div>
               </div>
             )}
-            {stage === 'outro' && (
+            {showGameSelection && !selectedGame && (
               <div className="content-panel animate-scaleIn">
-                <h3 className="content-title">🏁 الختام والتقييم</h3>
-                <div className="outro-container">
-                  <p className="outro-text">رائع! انتهينا من الدرس. اضغط على الاختبارات لبدء التقييم.</p>
-                  <div className="outro-actions">
-                    <a className="btn btn-success" href={normalizedYoutubeUrl} target="_blank" rel="noreferrer">🔗 فتح فيديو اليوتيوب</a>
+                <h3 className="content-title">🎮 اختر لعبة للعب</h3>
+                <div className="game-selection-container">
+                  <p className="game-selection-text">رائع! انتهينا من الدرس. الآن يمكنك اختيار لعبة للعب:</p>
+                  <div className="game-options">
+                    <button 
+                      className="game-option-btn balloons-option"
+                      onClick={() => setSelectedGame('balloons')}
+                    >
+                      <div className="game-icon">🎈</div>
+                      <div className="game-title">لعبة البالونات</div>
+                      <div className="game-description">انقر على البالونات التي تحتوي على حرف {letter}</div>
+                    </button>
+                    <button 
+                      className="game-option-btn multiple-choice-option"
+                      onClick={() => setSelectedGame('multiple-choice')}
+                    >
+                      <div className="game-icon">🎯</div>
+                      <div className="game-title">لعبة الاختيارات</div>
+                      <div className="game-description">اختر الإجابة الصحيحة لكل سؤال</div>
+                    </button>
+                  </div>
+                  <div className="game-selection-footer">
+                    <button 
+                      className="finish-lesson-btn"
+                      onClick={() => {
+                        setShowGameSelection(false);
+                        setHasContent(false);
+                      }}
+                    >
+                      ✅ انهي الدرس
+                    </button>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {selectedGame === 'balloons' && (
+              <div className="content-panel animate-scaleIn">
+                <BalloonsGame 
+                  targetLetter={letter} 
+                  onGameComplete={() => {
+                    setSelectedGame(null);
+                    // Keep showGameSelection true to show game selection again
+                    setShowGameSelection(true);
+                    setHasContent(true);
+                  }} 
+                />
+              </div>
+            )}
+
+            {selectedGame === 'multiple-choice' && (
+              <div className="content-panel animate-scaleIn">
+                <MultipleChoiceGame 
+                  targetLetter={letter} 
+                  onGameComplete={() => {
+                    setSelectedGame(null);
+                    // Keep showGameSelection true to show game selection again
+                    setShowGameSelection(true);
+                    setHasContent(true);
+                  }} 
+                />
               </div>
             )}
           </div>
@@ -396,8 +785,8 @@ export default function App() {
       {/* Footer Actions - Full Width */}
       {hasContent && (
         <div className="footer-actions">
-          <button 
-            className="btn btn-primary btn-large" 
+          <button
+            className="btn btn-primary btn-large"
             onClick={() => setStage('outro')}
             disabled={stage === 'outro'}
           >
@@ -412,7 +801,7 @@ export default function App() {
           <div className="modal-content animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2 className="modal-title">🎛️ لوحة التحكم</h2>
-              <button 
+              <button
                 className="modal-close-btn"
                 onClick={() => setShowControlModal(false)}
                 aria-label="إغلاق"
@@ -420,16 +809,16 @@ export default function App() {
                 ✕
               </button>
             </div>
-            
+
             <div className="modal-body">
               <div className="control-section">
                 <div className="section-label">حرف الدرس</div>
                 <div className="letter-selector">
-                  <select 
-                    className="letter-dropdown" 
-                    value={letter} 
+                  <select
+                    className="letter-dropdown"
+                    value={letter}
                     onChange={(e) => {
-                      const L = (e.target.value as 'A'|'B'|'C');
+                      const L = (e.target.value as 'A' | 'B' | 'C');
                       setLetter(L);
                       setWords(LETTERS[L].words);
                     }}
@@ -440,12 +829,52 @@ export default function App() {
               </div>
 
               <div className="control-section">
+                <div className="section-label">تسجيل نطق حرف {letter}</div>
+                <AudioRecorder
+                  letter={letter}
+                  currentRecording={getLetterRecording(letter)}
+                  onRecordingChange={(audioBlob) => updateLetterRecording(letter, audioBlob)}
+                />
+              </div>
+
+              <div className="control-section">
+                <div className="section-label">صور الحرف {letter}</div>
+                <div className="letter-images-section">
+                  <ImageUpload
+                    label="صورة الحرف الكبير (Capital)"
+                    currentImage={getLetterImage(letter, 'capital')}
+                    onImageChange={(imagePath) => updateLetterImage(letter, 'capital', imagePath)}
+                  />
+                  <ImageUpload
+                    label="صورة الحرف الصغير (Small)"
+                    currentImage={getLetterImage(letter, 'small')}
+                    onImageChange={(imagePath) => updateLetterImage(letter, 'small', imagePath)}
+                  />
+                </div>
+              </div>
+
+              <div className="control-section">
+                <div className="section-label">صور كلمات حرف {letter}</div>
+                <div className="word-images-section">
+                  {LETTERS[letter].words.map((word, index) => (
+                    <WordImageUpload
+                      key={index}
+                      word={word.word}
+                      arabic={word.arabic}
+                      currentImage={getWordImage(letter, word.word)}
+                      onImageChange={(imagePath) => updateWordImage(letter, word.word, imagePath)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="control-section">
                 <div className="section-label">رابط أغنية اليوتيوب</div>
                 <div className="youtube-url-input">
-                  <input 
-                    type="text" 
-                    className="url-input" 
-                    value={youtubeUrl} 
+                  <input
+                    type="text"
+                    className="url-input"
+                    value={youtubeUrl}
                     onChange={(e) => setYoutubeUrl(e.target.value)}
                     onBlur={(e) => {
                       const next = toYouTubeEmbedUrl(e.target.value);
@@ -473,17 +902,51 @@ export default function App() {
 
               <div className="control-section">
                 <div className="section-label">إدارة الدرس</div>
-                <button 
-                  className="btn btn-success btn-large" 
+                {!hasLetterRecording(letter) && (
+                  <div className="lesson-warning">
+                    <div className="warning-icon">⚠️</div>
+                    <div className="warning-text">
+                      يجب تسجيل نطق حرف {letter} قبل بدء الدرس
+                    </div>
+                  </div>
+                )}
+                <button
+                  className={`btn btn-large ${hasLetterRecording(letter) ? 'btn-success' : 'btn-secondary'}`}
                   onClick={async () => {
-                    try { 
-                      await clientRef.current?.speak(`ابدأ الدرس بحرف ${letter}`); 
+                    if (!hasLetterRecording(letter)) {
+                      alert(`يجب تسجيل نطق حرف ${letter} أولاً قبل بدء الدرس`);
+                      return;
+                    }
+                    try {
+                      // Reset repetition count
+                      updateLetterRepetitionCount(letter, 0);
+                      
+                      // Start the intro stage
+                      setStage('intro');
+                      setShowBoth(true);
+                      setHasContent(true);
+                      
+                      // Let the Voice Agent handle everything
+                      const lessonPrompt = `ابدأ درس حرف ${letter} مع تكرار النطق 5 مرات. في كل مرة:
+- قل جملة قصيرة مثل "الحرف ${letter} ينطق هكذا" دون نطق الصوت بنفسك.
+- استخدم ui_play_letter_recording بعد انتظار نصف ثانية لتجنب تداخل الصوت.
+- استخدم ui_wait_for_student_response مع timeoutMs=8000 للاستماع لرد الطلاب (مثل قول الصوت أو كلمة تبدأ بالحرف).
+- بعد سماع الرد استخدم ui_update_repetition_count لتحديث العداد.
+بعد إكمال 5 مرات انتقل لمرحلة الكلمات.`;
+                      
+                      if (clientRef.current) {
+                        await clientRef.current.speak(lessonPrompt);
+                      }
+                      
                       setShowControlModal(false);
-                    } catch {}
-                  }} 
-                  disabled={status !== 'connected'}
+                    } catch (error) {
+                      console.error('Error starting lesson:', error);
+                      alert('حدث خطأ في بدء الدرس');
+                    }
+                  }}
+                  disabled={status !== 'connected' || !hasLetterRecording(letter)}
                 >
-                  🚀 ابدأ الدرس
+                  {hasLetterRecording(letter) ? '🚀 ابدأ الدرس' : '⚠️ يجب تسجيل النطق أولاً'}
                 </button>
               </div>
 
