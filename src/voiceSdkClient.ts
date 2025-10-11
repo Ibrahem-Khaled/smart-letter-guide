@@ -115,7 +115,8 @@ export class VoiceSdkClient {
     try {
       this.update({ error: undefined });
 
-      const resp = await fetch('/api/ephemeral');
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
+      const resp = await fetch(`${apiBaseUrl}/api/ephemeral`);
       if (!resp.ok) {
         const text = await resp.text().catch(() => '');
         throw new Error(`Ephemeral key request failed: ${resp.status} ${text}`);
