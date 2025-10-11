@@ -7,6 +7,8 @@ interface Question {
   options: string[];
   correctAnswer: number;
   image?: string;
+  type: 'text' | 'image' | 'writing';
+  images?: string[];
 }
 
 interface MultipleChoiceGameProps {
@@ -22,59 +24,67 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({ targetLe
   const [showResult, setShowResult] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
+  const [writtenAnswer, setWrittenAnswer] = useState('');
+  const [isWritingCorrect, setIsWritingCorrect] = useState(false);
 
   // Generate questions based on target letter
   const generateQuestions = (): Question[] => {
     const letterQuestions: Question[] = [
       {
         id: 1,
-        question: `أي من هذه الكلمات تبدأ بحرف ${targetLetter}؟`,
-        options: [
-          targetLetter === 'A' ? 'Apple' : 'Ball',
-          targetLetter === 'B' ? 'Ball' : 'Cat',
-          targetLetter === 'C' ? 'Cat' : 'Dog',
-          targetLetter === 'D' ? 'Dog' : 'Elephant'
+        question: `اضغط على الصور التي تبدأ بحرف ${targetLetter}`,
+        type: 'image',
+        options: ['تفاحة', 'قطة', 'موزة', 'نملة'],
+        images: [
+          'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200&h=200&fit=crop'
         ],
-        correctAnswer: 0
+        correctAnswer: targetLetter === 'A' ? 0 : targetLetter === 'C' ? 1 : 2
       },
       {
         id: 2,
-        question: `ما هو شكل حرف ${targetLetter} الصغير؟`,
+        question: `اضغط على الحرف الصغير لحرف ${targetLetter}`,
+        type: 'text',
         options: [
           targetLetter.toLowerCase(),
-          targetLetter.toUpperCase(),
-          targetLetter === 'A' ? 'a' : targetLetter === 'B' ? 'b' : 'c',
-          targetLetter === 'A' ? 'A' : targetLetter === 'B' ? 'B' : 'C'
+          'd',
+          'e', 
+          'n'
         ],
         correctAnswer: 0
       },
       {
         id: 3,
-        question: `كم مرة يظهر حرف ${targetLetter} في كلمة "${targetLetter}${targetLetter}${targetLetter}"؟`,
-        options: ['1', '2', '3', '4'],
-        correctAnswer: 2
-      },
-      {
-        id: 4,
-        question: `أي من هذه الأشياء تبدأ بحرف ${targetLetter}؟`,
+        question: `اختر الحرف الذي تعلمناه اليوم`,
+        type: 'text',
         options: [
-          targetLetter === 'A' ? 'تفاحة' : targetLetter === 'B' ? 'كرة' : 'قط',
-          targetLetter === 'A' ? 'موز' : targetLetter === 'B' ? 'تفاحة' : 'كلب',
-          targetLetter === 'A' ? 'برتقال' : targetLetter === 'B' ? 'موز' : 'فيل',
-          targetLetter === 'A' ? 'عنب' : targetLetter === 'B' ? 'برتقال' : 'أسد'
+          `${targetLetter}${targetLetter.toLowerCase()}`,
+          'Bb',
+          'Cc',
+          'Dd'
         ],
         correctAnswer: 0
       },
       {
-        id: 5,
-        question: `ما هو ترتيب حرف ${targetLetter} في الأبجدية الإنجليزية؟`,
+        id: 4,
+        question: `اختر الحرف الكبير لحرف ${targetLetter.toLowerCase()}`,
+        type: 'text',
         options: [
-          String(targetLetter.charCodeAt(0) - 64),
-          String(targetLetter.charCodeAt(0) - 63),
-          String(targetLetter.charCodeAt(0) - 65),
-          String(targetLetter.charCodeAt(0) - 62)
+          'S',
+          'D',
+          'M',
+          targetLetter.toUpperCase()
         ],
-        correctAnswer: 2
+        correctAnswer: 3
+      },
+      {
+        id: 5,
+        question: `اكتب الحرف الذي تعلمناه اليوم`,
+        type: 'writing',
+        options: [],
+        correctAnswer: 0
       }
     ];
 
@@ -91,6 +101,8 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({ targetLe
     setShowResult(false);
     setGameEnded(false);
     setGameStarted(true);
+    setWrittenAnswer('');
+    setIsWritingCorrect(false);
   };
 
   // Handle answer selection
@@ -105,12 +117,31 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({ targetLe
     }
   };
 
+  // Handle writing answer
+  const handleWritingAnswer = () => {
+    if (showResult) return;
+    
+    const correctAnswer = `${targetLetter}${targetLetter.toLowerCase()}`;
+    const isCorrect = writtenAnswer.toLowerCase() === correctAnswer.toLowerCase() || 
+                     writtenAnswer.toLowerCase() === targetLetter.toLowerCase() ||
+                     writtenAnswer.toLowerCase() === targetLetter.toUpperCase().toLowerCase();
+    
+    setIsWritingCorrect(isCorrect);
+    setShowResult(true);
+    
+    if (isCorrect) {
+      setScore(prev => prev + 10);
+    }
+  };
+
   // Move to next question
   const nextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setSelectedAnswer(null);
       setShowResult(false);
+      setWrittenAnswer('');
+      setIsWritingCorrect(false);
     } else {
       setGameEnded(true);
       setGameStarted(false);
@@ -168,34 +199,90 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({ targetLe
           <div className="question-container">
             <h4 className="question-text">{currentQuestion.question}</h4>
             
-            <div className="options-container">
-              {currentQuestion.options.map((option, index) => (
-                <button
-                  key={index}
-                  className={getOptionClass(index)}
-                  onClick={() => handleAnswerSelect(index)}
-                  disabled={showResult}
-                >
-                  <span className="option-letter">{String.fromCharCode(65 + index)}</span>
-                  <span className="option-text">{option}</span>
-                </button>
-              ))}
-            </div>
+            {currentQuestion.type === 'image' && (
+              <div className="image-options-container">
+                {currentQuestion.images?.map((image, index) => (
+                  <button
+                    key={index}
+                    className={getOptionClass(index)}
+                    onClick={() => handleAnswerSelect(index)}
+                    disabled={showResult}
+                  >
+                    <img src={image} alt={currentQuestion.options[index]} className="option-image" />
+                    <span className="option-text">{currentQuestion.options[index]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {currentQuestion.type === 'text' && (
+              <div className="options-container">
+                {currentQuestion.options.map((option, index) => (
+                  <button
+                    key={index}
+                    className={getOptionClass(index)}
+                    onClick={() => handleAnswerSelect(index)}
+                    disabled={showResult}
+                  >
+                    <span className="option-letter">{String.fromCharCode(65 + index)}</span>
+                    <span className="option-text">{option}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {currentQuestion.type === 'writing' && (
+              <div className="writing-container">
+                <div className="writing-input-container">
+                  <input
+                    type="text"
+                    value={writtenAnswer}
+                    onChange={(e) => setWrittenAnswer(e.target.value)}
+                    placeholder="اكتب الحرف هنا..."
+                    className="writing-input"
+                    disabled={showResult}
+                  />
+                  <button 
+                    className="submit-writing-btn"
+                    onClick={handleWritingAnswer}
+                    disabled={showResult || !writtenAnswer.trim()}
+                  >
+                    تأكيد
+                  </button>
+                </div>
+              </div>
+            )}
 
             {showResult && (
               <div className="result-feedback">
-                {selectedAnswer === currentQuestion.correctAnswer ? (
-                  <div className="feedback correct">
-                    <span className="feedback-icon">✅</span>
-                    <span className="feedback-text">إجابة صحيحة! أحسنت!</span>
-                  </div>
+                {currentQuestion.type === 'writing' ? (
+                  isWritingCorrect ? (
+                    <div className="feedback correct">
+                      <span className="feedback-icon">✅</span>
+                      <span className="feedback-text">إجابة صحيحة! أحسنت!</span>
+                    </div>
+                  ) : (
+                    <div className="feedback incorrect">
+                      <span className="feedback-icon">❌</span>
+                      <span className="feedback-text">
+                        إجابة خاطئة. الإجابة الصحيحة هي: {targetLetter}
+                      </span>
+                    </div>
+                  )
                 ) : (
-                  <div className="feedback incorrect">
-                    <span className="feedback-icon">❌</span>
-                    <span className="feedback-text">
-                      إجابة خاطئة. الإجابة الصحيحة هي: {currentQuestion.options[currentQuestion.correctAnswer]}
-                    </span>
-                  </div>
+                  selectedAnswer === currentQuestion.correctAnswer ? (
+                    <div className="feedback correct">
+                      <span className="feedback-icon">✅</span>
+                      <span className="feedback-text">إجابة صحيحة! أحسنت!</span>
+                    </div>
+                  ) : (
+                    <div className="feedback incorrect">
+                      <span className="feedback-icon">❌</span>
+                      <span className="feedback-text">
+                        إجابة خاطئة. الإجابة الصحيحة هي: {currentQuestion.options[currentQuestion.correctAnswer]}
+                      </span>
+                    </div>
+                  )
                 )}
                 
                 <button className="next-question-btn" onClick={nextQuestion}>

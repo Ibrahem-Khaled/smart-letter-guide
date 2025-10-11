@@ -90,9 +90,7 @@
 
 ### 🎥 Live Demo
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-View%20Now-green?style=for-the-badge)](https://smart-letter-guides.vercel.app/)
-
-**🌐 Live Website**: [https://smart-letter-guides.vercel.app/](https://smart-letter-guides.vercel.app/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-View%20Now-green?style=for-the-badge)](https://your-demo-url.com)
 
 ---
 
@@ -131,18 +129,22 @@ npm run dev
 ### Step-by-Step Installation
 
 1. **Clone the Repository**
-   ```bash
+```bash
+
    git clone https://github.com/Ibrahem-Khaled/smart-letter-guide.git
    cd smart-letter-guide
-   ```
+```
+
 
 2. **Install Dependencies**
 ```bash
 npm install
 ```
 
+
 3. **Environment Setup**
 ```bash
+
    cp .env.example .env
    ```
    
@@ -155,6 +157,7 @@ npm install
 ```bash
 npm run dev
 ```
+
 
 5. **Access the Application**
    Open [http://localhost:5173](http://localhost:5173) in your browser
@@ -274,6 +277,7 @@ graph TD
 
 1. **Letter Content**
 ```typescript
+
    // Add new letters in src/letters.ts
    'D': {
      letter: 'D',
@@ -281,6 +285,7 @@ graph TD
      small: 'd',
      sound: '/sounds/letter-d.mp3',
   words: [
+
        { word: 'Dog', arabic: 'كلب', image: '/images/dog.jpg' }
      ]
    }
@@ -454,12 +459,6 @@ If this project helped you, please give it a ⭐️ star!
 <div align="center">
 
 **Made with ❤️ for Arabic children's education**
-
-## 🔗 Project Links
-
-- **🌐 Live Demo**: [https://smart-letter-guides.vercel.app/](https://smart-letter-guides.vercel.app/)
-- **📂 GitHub Repository**: [https://github.com/Ibrahem-Khaled/smart-letter-guide](https://github.com/Ibrahem-Khaled/smart-letter-guide)
-- **🚀 Deployed on**: Vercel
 
 [![GitHub stars](https://img.shields.io/github/stars/Ibrahem-Khaled/smart-letter-guide?style=social)](https://github.com/Ibrahem-Khaled/smart-letter-guide/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Ibrahem-Khaled/smart-letter-guide?style=social)](https://github.com/Ibrahem-Khaled/smart-letter-guide/network)

@@ -108,6 +108,77 @@
   margin-bottom: 25px;
 }
 
+.image-options-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.writing-container {
+  margin-bottom: 25px;
+}
+
+.writing-input-container {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.writing-input {
+  padding: 15px 20px;
+  font-size: 1.2rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  text-align: center;
+  min-width: 200px;
+  backdrop-filter: blur(10px);
+}
+
+.writing-input::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.writing-input:focus {
+  outline: none;
+  border-color: #4ECDC4;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.submit-writing-btn {
+  background: linear-gradient(45deg, #4ECDC4, #45B7D1);
+  border: none;
+  padding: 15px 25px;
+  font-size: 1rem;
+  color: white;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.submit-writing-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.submit-writing-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.option-image {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
 .option {
   display: flex;
   align-items: center;
@@ -119,6 +190,12 @@
   transition: all 0.3s ease;
   text-align: right;
   direction: rtl;
+}
+
+.image-options-container .option {
+  flex-direction: column;
+  text-align: center;
+  padding: 20px 15px;
 }
 
 .option:hover {
@@ -300,7 +377,8 @@
     font-size: 1.5rem;
   }
   
-  .options-container {
+  .options-container,
+  .image-options-container {
     grid-template-columns: 1fr;
     gap: 10px;
   }
@@ -315,6 +393,21 @@
   
   .question-text {
     font-size: 1.1rem;
+  }
+  
+  .writing-input-container {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .writing-input {
+    min-width: 150px;
+    font-size: 1rem;
+  }
+  
+  .option-image {
+    width: 60px;
+    height: 60px;
   }
   
   .game-actions {
