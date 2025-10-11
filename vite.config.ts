@@ -7,7 +7,7 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  base: '/smart-letter-guide/',
+  base: '/',
   server: {
     allowedHosts: [
       // allow all urls
