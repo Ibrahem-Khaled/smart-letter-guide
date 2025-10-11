@@ -11,6 +11,13 @@ import { ImageUpload } from './components/ImageUpload';
 import { WordImageUpload } from './components/WordImageUpload';
 import { AudioRecorder } from './components/AudioRecorder';
 
+type ImageSelectionOption = {
+  id: string;
+  word: string;
+  arabic: string;
+  image?: string;
+  isCorrect: boolean;
+};
 
 function toYouTubeEmbedUrl(raw: string): string | null {
   try {
@@ -90,6 +97,12 @@ export default function App() {
   type StageKey = 'intro' | 'words' | 'writing' | 'song' | 'outro' | 'image-selection';
   const stageOrder: StageKey[] = ['intro', 'words', 'writing', 'song', 'outro'];
   const [stage, setStage] = useState<StageKey>('intro');
+  const [imageSelectionOptions, setImageSelectionOptions] = useState<ImageSelectionOption[]>([]);
+  const [imageSelectionState, setImageSelectionState] = useState<{
+    status: 'idle' | 'correct' | 'incorrect';
+    selectedId?: string;
+    feedbackMessage?: string;
+  }>({ status: 'idle' });
   const stageIndex = stageOrder.indexOf(stage);
   const progressPercent = Math.round(((stageIndex + 1) / stageOrder.length) * 100);
   const stageLabels: Record<StageKey, string> = {
@@ -247,6 +260,9 @@ export default function App() {
         playLetterRecording: async (letter: string) => {
           await playLetterRecordingForLetter(letter);
         },
+        stopLetterRecording: async () => {
+          await stopLetterRecordingForLetter();
+        },
         waitForStudentResponse: async ({ timeoutMs }: { timeoutMs?: number } = {}) => {
           const effectiveTimeout = typeof timeoutMs === 'number' ? timeoutMs : 8000;
           setIsWaitingForStudentResponse(true);
@@ -400,7 +416,9 @@ export default function App() {
     }
   };
 
-
+  const stopLetterRecordingForLetter = async () => {
+    await clientRef.current?.stopLetterRecording();
+  };
 
 
   // Image Selection Game
@@ -416,7 +434,7 @@ export default function App() {
     } : null;
 
     const otherLetters = Object.keys(LETTERS).filter(l => l !== currentLetter);
-    const incorrectOptions: Array<{ word: string; arabic: string; image?: string; isCorrect: false; id: string }> = [];
+    const incorrectOptions: ImageSelectionOption[] = [];
 
     while (incorrectOptions.length < 3 && otherLetters.length) {
       const randomLetter = otherLetters[Math.floor(Math.random() * otherLetters.length)];
@@ -440,26 +458,71 @@ export default function App() {
       ...incorrectOptions,
     ] : incorrectOptions.map((opt, index) => ({ ...opt, id: opt.id ?? `incorrect-${index}` }));
 
-    return options.map(opt => opt.id ? opt : { ...opt, id: `${opt.word}-${opt.arabic}` }).sort(() => Math.random() - 0.5);
+    return options
+      .map(opt => opt.id ? opt : { ...opt, id: `${opt.word}-${opt.arabic}` })
+      .sort(() => Math.random() - 0.5);
   };
 
-  const [imageSelectionState, setImageSelectionState] = useState<{ status: 'idle' | 'correct' | 'incorrect'; selectedId?: string }>({ status: 'idle' });
+  useEffect(() => {
+    if (showImageSelection) {
+      setImageSelectionOptions(generateImageSelectionOptions(letter));
+      setImageSelectionState({ status: 'idle' });
+      if (status === 'connected' && clientRef.current) {
+        const prompt = `حان الآن وقت لعبة الصور. اختَر الصورة التي تبدأ بحرف ${letter}.`;
+        clientRef.current.speak(prompt).catch(() => {
+          setMessage(`اختر الصورة الصحيحة لحرف ${letter}`);
+        });
+      } else {
+        setMessage(`اختر الصورة الصحيحة لحرف ${letter}`);
+      }
+    }
+  }, [showImageSelection, letter, status]);
 
-  const handleImageSelection = (option: any) => {
+  const handleImageSelection = (option: ImageSelectionOption) => {
     if (imageSelectionState.status !== 'idle') return;
     if (option.isCorrect) {
-      setImageSelectionState({ status: 'correct', selectedId: option.id });
+      setImageSelectionState({
+        status: 'correct',
+        selectedId: option.id,
+        feedbackMessage: 'أحسنت! هذا هو الاختيار الصحيح.'
+      });
+      if (status === 'connected' && clientRef.current) {
+        clientRef.current.speak('أحسنت! هذا هو الاختيار الصحيح. هل أنت جاهز للمرحلة التالية؟').catch(() => {
+          setMessage('أحسنت! هذا هو الاختيار الصحيح. هل أنت جاهز للمرحلة التالية؟');
+        });
+      } else {
+        setMessage('أحسنت! هذا هو الاختيار الصحيح. هل أنت جاهز للمرحلة التالية؟');
+      }
       setTimeout(() => {
         setImageSelectionState({ status: 'idle', selectedId: undefined });
         setShowImageSelection(false);
-        setStage('writing');
         handleStageSelect('writing');
-      }, 1200);
+      }, 2000);
     } else {
-      setImageSelectionState({ status: 'incorrect', selectedId: option.id });
+      const correctOption = imageSelectionOptions.find(opt => opt.isCorrect);
+      const correctWord = correctOption?.word;
+      setImageSelectionState({
+        status: 'incorrect',
+        selectedId: option.id,
+        feedbackMessage: correctWord
+          ? `خطأ. حاول أن تجد الصورة التي تبدأ بكلمة ${correctWord}.`
+          : 'خطأ. حاول اختيار الصورة الصحيحة.'
+      });
+      if (status === 'connected' && clientRef.current) {
+        const incorrectPrompt = correctWord
+          ? `خطأ. تذكر أن تختار الصورة التي تبدأ بكلمة ${correctWord}.`
+          : 'خطأ. حاول اختيار الصورة الصحيحة.';
+        clientRef.current.speak(incorrectPrompt).catch(() => {
+          setMessage(incorrectPrompt);
+        });
+      } else {
+        setMessage(correctWord
+          ? `خطأ. تذكر أن تختار الصورة التي تبدأ بكلمة ${correctWord}.`
+          : 'خطأ. حاول اختيار الصورة الصحيحة.');
+      }
       setTimeout(() => {
         setImageSelectionState({ status: 'idle', selectedId: undefined });
-      }, 1000);
+      }, 2000);
     }
   };
 
@@ -670,8 +733,13 @@ export default function App() {
             {showImageSelection && (
               <div className="content-panel animate-fadeInUp">
                 <h3 className="content-title">🎯 اختر الصورة التي تبدأ بحرف {letter}</h3>
+                {imageSelectionState.feedbackMessage && (
+                  <div className={`image-selection-feedback ${imageSelectionState.status}`}>
+                    {imageSelectionState.feedbackMessage}
+                  </div>
+                )}
                 <div className="image-selection-grid">
-                  {generateImageSelectionOptions(letter).map((option, i) => {
+                  {imageSelectionOptions.map((option, i) => {
                     const isSelected = imageSelectionState.selectedId === option.id;
                     const statusClass = imageSelectionState.status === 'correct' && isSelected
                       ? 'correct'
@@ -927,12 +995,7 @@ export default function App() {
                       setHasContent(true);
                       
                       // Let the Voice Agent handle everything
-                      const lessonPrompt = `ابدأ درس حرف ${letter} مع تكرار النطق 5 مرات. في كل مرة:
-- قل جملة قصيرة مثل "الحرف ${letter} ينطق هكذا" دون نطق الصوت بنفسك.
-- استخدم ui_play_letter_recording بعد انتظار نصف ثانية لتجنب تداخل الصوت.
-- استخدم ui_wait_for_student_response مع timeoutMs=8000 للاستماع لرد الطلاب (مثل قول الصوت أو كلمة تبدأ بالحرف).
-- بعد سماع الرد استخدم ui_update_repetition_count لتحديث العداد.
-بعد إكمال 5 مرات انتقل لمرحلة الكلمات.`;
+                      const lessonPrompt = `ابدأ درس حرف ${letter} بالكامل باتباع الخطة المحدّثة.`;
                       
                       if (clientRef.current) {
                         await clientRef.current.speak(lessonPrompt);

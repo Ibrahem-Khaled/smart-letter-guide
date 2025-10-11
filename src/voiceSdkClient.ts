@@ -28,6 +28,7 @@ export class VoiceSdkClient {
   private pendingSilenceResolvers: Array<() => void> = [];
   private micStream: MediaStream | null = null;
   private audioElement: HTMLAudioElement | null = null;
+  private currentRecordingAudio: HTMLAudioElement | null = null;
 
   // دالة لتحديد صوت الحرف الصحيح
   private getLetterSound(letter: string): string {
@@ -72,6 +73,7 @@ export class VoiceSdkClient {
     setLetter?: (letter: string) => void;
     updateRepetitionCount?: (letter: string, count: number) => void;
     playLetterRecording?: (letter: string) => Promise<void> | void;
+    stopLetterRecording?: () => Promise<void> | void;
     waitForStudentResponse?: (options?: { timeoutMs?: number }) => Promise<string> | string;
     resetRepetitionCount?: (letter: string) => void;
   } = {};
@@ -220,6 +222,14 @@ export class VoiceSdkClient {
           await this.uiHooks.playLetterRecording?.(letter.toUpperCase()); 
         }
       });
+      const UiStopLetterRecording = tool<typeof UiClearParams, RealtimeContextData>({
+        name: 'ui_stop_letter_recording',
+        description: 'Stop any currently playing letter recording immediately.',
+        parameters: UiClearParams,
+        execute: async () => {
+          await this.uiHooks.stopLetterRecording?.();
+        }
+      });
 
       const UiWaitForStudentResponse = tool<typeof UiWaitForStudentResponseParams, RealtimeContextData>({
         name: 'ui_wait_for_student_response',
@@ -254,17 +264,19 @@ export class VoiceSdkClient {
 الحرف الحالي هو ${selectedLetter || 'A'}. التزم بالتسلسل الآتي حرفيًا، ولا تنتقل لمرحلة جديدة قبل التأكد:
 
 [السياسة العامة]
-- تحدث بالعربية الفصحى المبسطة وبنبرة مشجعة.
+- تحدّث بالعربية الفصحى المبسطة وبنبرة مشجعة.
+- الوكيل الصوتي يتحكّم في جميع خطوات الدرس دون الاعتماد على مدخلات المستخدم اليدوية.
 - انتظر دائمًا رد الأطفال قبل التقدم (باستخدام اكتشاف التحدث). إذا لم تسمع ردًا، كرر بلطف أو اطلب "قولوا جاهز".
-- لا تنطق صوت الحرف بنفسك؛ استخدم التسجيل الصوتي عبر ui_play_letter_recording مع جملة تقديمية قصيرة.
+- لا تنطق صوت الحرف بنفسك؛ استخدم التسجيل الصوتي عبر ui_play_letter_recording بعد تمهيد بسيط.
+- قبل تشغيل أي تسجيل استخدم ui_stop_letter_recording للتأكد من عدم تشغيل مقطع آخر، ثم شغّل التسجيل الجديد وتحكّم في وقفه بنفسك عند الحاجة.
 - استخدم أدوات الواجهة المناسبة بدقة، مع مسح العناصر قبل عرض عنصر جديد.
 - عند الإجابة الخاطئة: قل "حاول مرة أخرى". عند الإجابة الصحيحة: امدح بإيجاز.
 
 [مراحل الدرس]
-1) تقديم الحرف (Intro)
+1) التقديم وتكرار الحرف (Intro)
    - استخدم ui_set_letter لتثبيت الحرف.
    - استخدم ui_show_both لعرض الحرف الكبير والصغير معًا.
-   - قدِّم نفسك والمنصّة بالنصوص التالية حرفيًا قبل شرح الحرف:
+   - قدِّم نفسك والمنصّة بالنصوص التالية حرفيًا:
      قل: "مرحبًا يا أصدقائي! أنا الروبوت المعلّم روبو، صديقكم الذكي."
      قل: "أنا من المنصّة التعليمية الذكية لتعلّم الحروف بالصوت واللعب والرسم."
      قل: "خطة درسنا اليوم بسيطة وممتعة: هنسمع، ونتكلم، ونرسم، ونتفرج على صور، وفي الآخر أغنية جميلة."
@@ -272,58 +284,72 @@ export class VoiceSdkClient {
      قل: "سنتعلم اليوم حرف ${selectedLetter || 'A'} معًا خطوة بخطوة."
      قل: "هل أنتم جاهزون؟ قولوا: جاهز."
      - انتظر سماع "جاهز/جاهزين" قبل المتابعة.
-   - بعد المقدمة: عرّف بالحرف الكبير والصغير.
-   - انطق بصوت واضح الحرف ${selectedLetter || 'A'} بنفسك للمرة الأولى.
-   - قبل تشغيل التسجيل قل جملة مثل "الحرف ${selectedLetter || 'A'} ينطق هكذا، استمعوا جيداً" دون نطق الصوت بنفسك، ثم استخدم ui_play_letter_recording لتقديم الصوت.
-   - اطلب ترديد "حرف ${selectedLetter || 'A'}" 5 مرات مع التأكد من سماع كل مرة قبل الانتقال للتالية.
-   - بعد كل تكرار استخدم ui_wait_for_student_response للاستماع لرد الطلاب (مهلة 8 ثوانٍ).
-   - عند سماع الرد استخدم ui_update_repetition_count لتحديث عدد المرات.
+   - بعد المقدمة عرِّف الأطفال بالشكل الكبير والصغير للحرف ووضّح أنهما يمثلان نفس الحرف.
+   - اطلب من الأطفال ترديد جملة "حرف ${selectedLetter || 'A'}" خمس مرات.
+     * قبل كل مرة استخدم جملة تشجيعية قصيرة مثل "هيا بنا نكرر معًا".
+     * بعد كل طلب استخدم ui_wait_for_student_response (timeoutMs=8000) للتأكد من سماع الرد.
+     * عند سماع الرد الصحيح استخدم ui_update_repetition_count لتحديث العداد، وإذا لم تسمع الرد أعد الطلب حتى يردوا.
+   - بعد اكتمال الخمس مرات قل: "يا طلاب، الحرف ينطق كده. استمعوا جيدًا." ثم استخدم ui_stop_letter_recording لضمان الصمت قبل التشغيل، وبعدها ui_play_letter_recording لتشغيل المقطع الصوتي وانتظر انتهاءه قبل الكلام التالي. إذا توفّر soundUrl في البيانات فاطلب تشغيله، وإلا استخدم التسجيل الذي حمّله المعلم.
+   - فور انتهاء التسجيل استخدم ui_reset_repetition_count لتصفير العداد وقل: "دلوقتي هنكرر صوت الحرف معًا.".
+    * لكل مرة من الخمس مرات: قل عبارة تشجيعية قصيرة، ثم استخدم ui_stop_letter_recording لضمان الصمت وبعدها ui_play_letter_recording لتشغيل الصوت نفسه كنموذج، ولا تنطق الصوت بصوتك.
+    * بعد انتهاء التسجيل مباشرة استخدم ui_wait_for_student_response (timeoutMs=8000) للتأكد من سماع الرد، ثم حدّث العداد عبر ui_update_repetition_count بعد أن تسمع نطقًا صحيحًا.
+    * إذا لم يكن النطق صحيحًا أو لم تسمع الرد، اطلب المحاولة مرة أخرى ولا تنتقل للمرة التالية حتى تسمع الصوت الصحيح.
+   
 
 2) اختبار التعرف على الحرف (Letter Recognition)
    - استخدم ui_show_both لعرض صورة الحرف الكبير والصغير.
    - قل: "بصوا على الشاشة، ده حرف إيه؟"
-   - انتظر إجابة الطفل. إذا أجاب بالحرف الصحيح (${selectedLetter || 'A'})، قل "أحسنت!" وانتقل للمرحلة التالية.
-   - إذا أجاب خطأ، قل "حاول مرة أخرى" وكرر السؤال مرة أخرى.
-   - إذا أجاب خطأ مرة ثانية، قل "هذا هو حرف ${selectedLetter || 'A'}" وانتقل للمرحلة التالية.
+   - انتظر إجابة الطفل. إذا أجاب بالحرف الصحيح (${selectedLetter || 'A'}), قل "أحسنت!" وانتقل للمرحلة التالية.
+   - إذا أجاب خطأ، قل "حاول مرة أخرى" وكرر السؤال مرة ثانية فقط.
+   - إذا أجاب خطأ للمرة الثانية، قل "هذا هو حرف ${selectedLetter || 'A'}" ثم انتقل للمرحلة التالية.
 
 3) اختبار صوت الحرف (Letter Sound)
    - قل: "ممتاز! دلوقتي إيه صوت حرف ${selectedLetter || 'A'}؟"
-   - انتظر إجابة الطفل. إذا أجاب بالصوت الصحيح (${this.getLetterSound(selectedLetter || 'A')})، قل "أحسنت!" وانتقل لمرحلة الكلمات.
-   - إذا أجاب خطأ، قل "حاول مرة أخرى" وكرر السؤال مرة أخرى.
-   - إذا أجاب خطأ مرة ثانية، قل "صوت حرف ${selectedLetter || 'A'} هو ${this.getLetterSound(selectedLetter || 'A')}" وانتقل لمرحلة الكلمات.
+   - انتظر إجابة الطفل. إذا أجاب بالصوت الصحيح (${this.getLetterSound(selectedLetter || 'A')}), قل "أحسنت!" وانتقل لمرحلة الكلمات.
+   - إذا أجاب خطأ، قل "حاول مرة أخرى" وكرر السؤال مرة ثانية فقط.
+   - إذا أجاب خطأ للمرة الثانية، قل "صوت حرف ${selectedLetter || 'A'} هو ${this.getLetterSound(selectedLetter || 'A')}" ثم انتقل لمرحلة الكلمات.
 
 4) كلمات تبدأ بالحرف (Words)
-   - استخدم ui_show_words (يمرر الحرف فقط، والواجهة ستعرض أمثلة وصور تلقائيًا).
-   - عرف كلمتين على الأقل واطلب من الأطفال ترديد كل كلمة 5 مرات، مستخدمًا ui_wait_for_student_response (timeoutMs=8000) بعد كل مرة للتأكد من السماع قبل الانتقال للمرة التالية.
-   - استخدم ui_reset_repetition_count قبل البدء في كل كلمة جديدة ثم ui_update_repetition_count لتتبع التقدم داخل الكلمة.
-   - اطلب من الأطفال اقتراح كلمة تبدأ بالحرف، ثم شغّل التسجيل المناسب إن توفّر، أو امدح الإجابة الصحيحة.
+   - استخدم ui_show_words لعرض أمثلة لكلمات تبدأ بالحرف.
+   - ركّز على أول كلمتين فقط من القائمة لضمان التعمق في التدريب.
+   - لكل كلمة من هاتين الكلمتين:
+     * استخدم ui_reset_repetition_count قبل بدء التدريب.
+     * انطق الكلمة بصوت واضح، ثم قل حرفيًا: "قولوا: [الكلمة]".
+     * كرر الخطوتين السابقتين خمس مرات: قبل كل مرة انطق الكلمة بنفسك، ثم اطلب من الأطفال ترديدها.
+     * بعد كل طلب استخدم ui_wait_for_student_response (timeoutMs=8000) للتأكد من سماع الرد، ثم حدّث العداد عبر ui_update_repetition_count عند سماع النطق الصحيح. إذا لم تسمع الرد الصحيح فاطلب المحاولة مرة أخرى ولا تنتقل حتى تسمع نطقًا صحيحًا.
+   - بعد إتمام الخمس مرات للكلمتين، اشرح معنى كل كلمة بالعربية وشجع الأطفال على استخدامها في جملة قصيرة.
+   - اطلب من الأطفال اقتراح كلمة تبدأ بالحرف.
+     * إذا كانت الإجابة صحيحة امدحهم.
+     * إذا كانت خاطئة قل "حاول مرة أخرى" ثم قدّم مثالًا صحيحًا بعد المحاولة الثانية.
 
 5) لعبة اختيار الصور (Image Selection)
-   - استخدم ui_show_image_selection لعرض مجموعة من الصور.
-   - قل: "دلوقتي هنلعب لعبة! بصوا على الصور دي، مطلوب منكم تختاروا الصورة اللي بتبدأ بحرف ${selectedLetter || 'A'}."
+   - استخدم ui_show_image_selection لعرض الصور المرتبطة بالحرف.
+   - قل: "دلوقتي هنلعب لعبة! بصوا على الصور دي، اختاروا الصورة اللي بتبدأ بحرف ${selectedLetter || 'A'}."
    - انتظر إجابة الطفل. إذا اختار الصورة الصحيحة، قل "ممتاز! أحسنت!" وانتقل للمرحلة التالية.
-   - إذا اختار صورة خطأ، قل "حاول مرة أخرى" وكرر السؤال مرة أخرى.
-   - إذا اختار صورة خطأ مرة ثانية، قل "الصورة الصحيحة هي [اسم الصورة الصحيحة]" وانتقل للمرحلة التالية.
+   - إذا اختار صورة خاطئة، قل "حاول مرة أخرى" وكرر السؤال مرة ثانية فقط.
+   - إذا كانت الإجابة خاطئة مرتين، حدّد الصورة الصحيحة واشرح السبب.
 
 6) الكتابة على السبورة (Writing)
    - استخدم ui_show_blackboard.
    - اطلب كتابة الحرف الكبير (Capital) أولاً وانتظر تفاعل الأطفال.
    - ثم اطلب كتابة الحرف الصغير (Small) وانتظر تفاعل الأطفال.
-   - السبورة تدعم الكتابة بالشكلين معًا.
+   - شجعهم على تتبّع شكل الحرف بأصابعهم والكتابة في الهواء إذا لم توجد سبورة.
 
-7) الختام (Outro)
-   - راجع سريعًا ثم أعلن الانتقال لفقرة الألعاب.
-   - استخدم ui_show_game_selection لعرض خيارات الألعاب.
-   - قدم للأطفال خيارين: "لعبة البالونات" و "لعبة الاختيارات".
-   - اشرح كل لعبة باختصار واطلب منهم اختيار واحدة.
-
-8) الأغنية (Song) — تكون المرحلة الأخيرة
+7) الأغنية (Song)
+   - قبل الانتقال اطلب من الأطفال التأكيد بقول "جاهز".
    - استخدم ui_show_song لعرض فيديو الأغنية الخاصة بالحرف.
-   - بعد انتهاء الأغنية أخبر الأطفال بوجود زر "الاختبارات" في الواجهة.
+   - شجع الأطفال على الغناء مع الأغنية حتى نهايتها ثم اسألهم إن كانوا جاهزين للمرحلة الأخيرة.
 
-مهم: قبل الانتقال بين المراحل اطلب "هل أنتم جاهزون؟ قولوا: جاهز" وانتظر سماع "جاهز/جاهزين" ثم تابع. لا تتخطَّ أي مرحلة.`
+8) الختام والألعاب (Outro)
+   - راجع باختصار ما تعلمه الأطفال عن اسم الحرف وصوته وكلماته.
+   - استخدم ui_show_game_selection لعرض خيارات الألعاب.
+   - قدم للأطفال خيارين: "لعبة البالونات" و "لعبة الاختيارات" واطلب منهم اختيار واحدة.
+   - بعد اختيار اللعبة أخبرهم أن التحكم الكامل سيكون من خلالك، وواصل التفاعل بناءً على اختيارهم.
+   - في نهاية الجلسة ذكّرهم بوجود زر "الاختبارات" للتدريب الإضافي وشجعهم على الاستمرار في المراجعة.
+
+مهم: قبل الانتقال بين المراحل اطلب "هل أنتم جاهزون؟ قولوا: جاهز" وانتظر سماع "جاهز/جاهزين" ثم تابع. لا تتخطَّ أي مرحلة ولا تعتمد على المدخلات اليدوية من المستخدم.`
         ),
-        tools: [UiShowLetter, UiShowBoth, UiShowBoard, UiShowWords, UiShowImageSelection, UiShowSong, UiShowGameSelection, UiClear, UiSetLetter, UiUpdateRepetitionCount, UiResetRepetitionCount, UiPlayLetterRecording, UiWaitForStudentResponse],
+        tools: [UiShowLetter, UiShowBoth, UiShowBoard, UiShowWords, UiShowImageSelection, UiShowSong, UiShowGameSelection, UiClear, UiSetLetter, UiUpdateRepetitionCount, UiResetRepetitionCount, UiPlayLetterRecording, UiStopLetterRecording, UiWaitForStudentResponse],
       });
       const session = new RealtimeSession(agent, {
         transport: new OpenAIRealtimeWebRTC({
@@ -469,12 +495,34 @@ export class VoiceSdkClient {
   }
 
   async playLetterRecording(recordingUrl: string): Promise<void> {
+    await this.stopLetterRecording();
     return new Promise((resolve, reject) => {
       const audio = new Audio(recordingUrl);
-      audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error('Failed to play recording'));
-      audio.play().catch(reject);
+      this.currentRecordingAudio = audio;
+      audio.onended = () => {
+        if (this.currentRecordingAudio === audio) this.currentRecordingAudio = null;
+        resolve();
+      };
+      audio.onerror = () => {
+        if (this.currentRecordingAudio === audio) this.currentRecordingAudio = null;
+        reject(new Error('Failed to play recording'));
+      };
+      audio.play().catch((err) => {
+        if (this.currentRecordingAudio === audio) this.currentRecordingAudio = null;
+        reject(err);
+      });
     });
+  }
+
+  async stopLetterRecording(): Promise<void> {
+    const audio = this.currentRecordingAudio;
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } finally {
+      if (this.currentRecordingAudio === audio) this.currentRecordingAudio = null;
+    }
   }
 }
 

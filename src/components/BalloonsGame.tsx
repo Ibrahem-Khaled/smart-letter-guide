@@ -16,6 +16,7 @@ interface BalloonsGameProps {
 }
 
 const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F'];
+const TARGET_LETTER_PROBABILITY = 0.6;
 
 export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGameComplete }) => {
   const [balloons, setBalloons] = useState<Balloon[]>([]);
@@ -28,14 +29,19 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const balloonIdCounter = useRef(0);
 
+  const normalizedTargetLetter = targetLetter.toUpperCase();
+
   // Generate a single random balloon
-  const generateRandomBalloon = (): Balloon => {
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const randomLetter = letters[Math.floor(Math.random() * letters.length)];
-    
+  const generateRandomBalloon = (forceTarget = false): Balloon => {
+    const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(letter => letter !== normalizedTargetLetter);
+    const shouldUseTarget = forceTarget || Math.random() < TARGET_LETTER_PROBABILITY;
+    const letter = shouldUseTarget
+      ? normalizedTargetLetter
+      : allLetters[Math.floor(Math.random() * allLetters.length)] ?? normalizedTargetLetter;
+
     return {
       id: balloonIdCounter.current++,
-      letter: randomLetter,
+      letter,
       x: Math.random() * 80 + 10, // 10-90% of container width
       y: 100, // Start from bottom
       color: colors[Math.floor(Math.random() * colors.length)],
@@ -46,8 +52,11 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
   // Add new balloon
   const addNewBalloon = () => {
     if (gameStarted && !gameEnded) {
-      const newBalloon = generateRandomBalloon();
-      setBalloons(prev => [...prev, newBalloon]);
+      setBalloons(prev => {
+        const activeTargets = prev.filter(balloon => !balloon.popped && balloon.letter === normalizedTargetLetter).length;
+        const newBalloon = generateRandomBalloon(activeTargets === 0);
+        return [...prev, newBalloon];
+      });
     }
   };
 
@@ -91,8 +100,12 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
     setGameEnded(false);
     setBalloonsPopped(0);
     setTimeLeft(60);
-    setBalloons([]);
     balloonIdCounter.current = 0;
+    setBalloons([
+      generateRandomBalloon(true),
+      generateRandomBalloon(),
+      generateRandomBalloon(),
+    ]);
   };
 
   // Game timer

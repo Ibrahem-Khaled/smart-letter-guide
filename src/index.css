@@ -2258,6 +2258,8 @@ body {
   cursor: crosshair;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  touch-action: none; /* منع السكرول أثناء الكتابة */
+  user-select: none; /* منع تحديد النص */
 }
 
 .blackboard-canvas.celebrating {

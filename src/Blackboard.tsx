@@ -90,6 +90,15 @@ export function Blackboard({ traceLetter, onClearBoard }: { traceLetter: string;
     };
   };
 
+  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const touch = e.touches[0];
+    return {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top
+    };
+  };
+
   const drawWithBrush = (ctx: CanvasRenderingContext2D, currentPos: { x: number; y: number }, lastPos: { x: number; y: number }) => {
     ctx.globalCompositeOperation = 'source-over';
     ctx.strokeStyle = currentColor;
@@ -107,6 +116,7 @@ export function Blackboard({ traceLetter, onClearBoard }: { traceLetter: string;
 
 
   const onDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // منع السكرول أثناء الكتابة
     setIsDrawing(true);
     const pos = getMousePos(e);
     setLastPoint(pos);
@@ -115,6 +125,7 @@ export function Blackboard({ traceLetter, onClearBoard }: { traceLetter: string;
   const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDrawing || !lastPoint) return;
     
+    e.preventDefault(); // منع السكرول أثناء الكتابة
     const ctx = canvasRef.current?.getContext('2d');
     if (!ctx) return;
     
@@ -124,6 +135,32 @@ export function Blackboard({ traceLetter, onClearBoard }: { traceLetter: string;
   };
 
   const onUp = () => {
+    setIsDrawing(false);
+    setLastPoint(null);
+  };
+
+  // Touch event handlers
+  const onTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // منع السكرول أثناء اللمس
+    setIsDrawing(true);
+    const pos = getTouchPos(e);
+    setLastPoint(pos);
+  };
+
+  const onTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // منع السكرول أثناء اللمس
+    if (!isDrawing || !lastPoint) return;
+    
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return;
+    
+    const currentPos = getTouchPos(e);
+    drawWithBrush(ctx, currentPos, lastPoint);
+    setLastPoint(currentPos);
+  };
+
+  const onTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault(); // منع السكرول أثناء اللمس
     setIsDrawing(false);
     setLastPoint(null);
   };
@@ -371,7 +408,13 @@ export function Blackboard({ traceLetter, onClearBoard }: { traceLetter: string;
           onMouseMove={onMove}
           onMouseUp={onUp}
           onMouseLeave={onUp}
-          style={{ cursor: 'crosshair' }}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          style={{ 
+            cursor: 'crosshair',
+            touchAction: 'none' // منع السكرول على الأجهزة اللوحية
+          }}
         />
       </div>
 

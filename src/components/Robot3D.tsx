@@ -20,14 +20,15 @@ function RobotModel({ speaking }: { speaking: boolean }) {
     const group = modelRef.current;
     if (!group) return;
 
-    const baseScale = 11;
+    const baseScale = 17;
     const pulse = speaking ? 1 + Math.sin(state.clock.elapsedTime * 4) * 0.06 : 1;
 
     group.scale.setScalar(baseScale * pulse);
     group.position.set(0, -1.2 + Math.sin(state.clock.elapsedTime * 1.2) * 0.15, 0);
 
-    const rotationSpeed = speaking ? 0.018 : 0.0035;
-    group.rotation.y += rotationSpeed;
+    // إيقاف الدوران التلقائي - لا يدور النموذج حول نفسه
+    // const rotationSpeed = speaking ? 0.018 : 0.0035;
+    // group.rotation.y += rotationSpeed;
   });
 
   return (
@@ -54,7 +55,7 @@ export function Robot3D({ speaking, message }: Robot3DProps) {
           <OrbitControls
             enableZoom={false}
             enablePan={false}
-            autoRotate={!speaking}
+            autoRotate={false}
             autoRotateSpeed={0.5}
             maxPolarAngle={Math.PI / 2}
             minPolarAngle={Math.PI / 2}

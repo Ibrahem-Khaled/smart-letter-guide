@@ -7,11 +7,12 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  base: '/',
   server: {
     allowedHosts: [
       // allow all urls
       '*',
-      '62a99b9a4d42.ngrok-free.app', // الدومين الخاص بـ ngrok
+      '24be29231131.ngrok-free.app', // الدومين الخاص بـ ngrok
     ],
     proxy: {
       '/api': {
