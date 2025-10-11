@@ -10,7 +10,7 @@ interface Robot3DProps {
 
 // Component for the 3D Robot Model
 function RobotModel({ speaking }: { speaking: boolean }) {
-  const { scene } = useGLTF('/robot-model.glb');
+  const { scene } = useGLTF('./robot-model.glb');
   const modelRef = useRef<THREE.Group>(null);
 
   // Clone the scene to avoid issues with multiple instances
