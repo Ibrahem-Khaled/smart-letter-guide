@@ -12,7 +12,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge)](http://makeapullrequest.com)
-[![Issues](https://img.shields.io/github/issues/your-username/arabic-letter-learning-robot?style=for-the-badge)](https://github.com/your-username/arabic-letter-learning-robot/issues)
+[![Issues](https://img.shields.io/github/issues/Ibrahem-Khaled/smart-letter-guide?style=for-the-badge)](https://github.com/Ibrahem-Khaled/smart-letter-guide/issues)
 
 </div>
 
@@ -100,8 +100,8 @@ Get up and running in under 5 minutes!
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/arabic-letter-learning-robot.git
-cd arabic-letter-learning-robot
+git clone https://github.com/Ibrahem-Khaled/smart-letter-guide.git
+cd smart-letter-guide
 
 # Install dependencies
 npm install
@@ -130,17 +130,17 @@ npm run dev
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-username/arabic-letter-learning-robot.git
-   cd arabic-letter-learning-robot
+   git clone https://github.com/Ibrahem-Khaled/smart-letter-guide.git
+   cd smart-letter-guide
    ```
 
 2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
 3. **Environment Setup**
-   ```bash
+```bash
    cp .env.example .env
    ```
    
@@ -150,9 +150,9 @@ npm run dev
    ```
 
 4. **Start Development Server**
-   ```bash
-   npm run dev
-   ```
+```bash
+npm run dev
+```
 
 5. **Access the Application**
    Open [http://localhost:5173](http://localhost:5173) in your browser
@@ -215,7 +215,7 @@ npm run preview
 ### 📁 Project Structure
 
 ```
-arabic-letter-learning-robot/
+smart-letter-guide/
 ├── 📁 src/
 │   ├── 📁 components/          # React components
 │   │   ├── 🤖 Robot3D.tsx     # 3D robot component
@@ -271,14 +271,14 @@ graph TD
 ### ⚙️ **Customization Options**
 
 1. **Letter Content**
-   ```typescript
+```typescript
    // Add new letters in src/letters.ts
    'D': {
      letter: 'D',
      capital: 'D',
      small: 'd',
      sound: '/sounds/letter-d.mp3',
-     words: [
+  words: [
        { word: 'Dog', arabic: 'كلب', image: '/images/dog.jpg' }
      ]
    }
@@ -366,8 +366,8 @@ We welcome contributions! Here's how you can help:
 
 1. **Fork the Repository**
    ```bash
-   git clone https://github.com/your-username/arabic-letter-learning-robot.git
-   cd arabic-letter-learning-robot
+   git clone https://github.com/Ibrahem-Khaled/smart-letter-guide.git
+   cd smart-letter-guide
    ```
 
 2. **Create Feature Branch**
@@ -432,8 +432,8 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ### 🆘 **Getting Help**
 
 - **Documentation**: Check this README and code comments
-- **Issues**: Search [existing issues](https://github.com/your-username/arabic-letter-learning-robot/issues)
-- **Discussions**: Join [GitHub Discussions](https://github.com/your-username/arabic-letter-learning-robot/discussions)
+- **Issues**: Search [existing issues](https://github.com/Ibrahem-Khaled/smart-letter-guide/issues)
+- **Discussions**: Join [GitHub Discussions](https://github.com/Ibrahem-Khaled/smart-letter-guide/discussions)
 - **Email**: Contact us at [your-email@example.com](mailto:your-email@example.com)
 
 ### 🔗 **Useful Links**
@@ -453,8 +453,8 @@ If this project helped you, please give it a ⭐️ star!
 
 **Made with ❤️ for Arabic children's education**
 
-[![GitHub stars](https://img.shields.io/github/stars/your-username/arabic-letter-learning-robot?style=social)](https://github.com/your-username/arabic-letter-learning-robot/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/your-username/arabic-letter-learning-robot?style=social)](https://github.com/your-username/arabic-letter-learning-robot/network)
-[![GitHub watchers](https://img.shields.io/github/watchers/your-username/arabic-letter-learning-robot?style=social)](https://github.com/your-username/arabic-letter-learning-robot/watchers)
+[![GitHub stars](https://img.shields.io/github/stars/Ibrahem-Khaled/smart-letter-guide?style=social)](https://github.com/Ibrahem-Khaled/smart-letter-guide/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/Ibrahem-Khaled/smart-letter-guide?style=social)](https://github.com/Ibrahem-Khaled/smart-letter-guide/network)
+[![GitHub watchers](https://img.shields.io/github/watchers/Ibrahem-Khaled/smart-letter-guide?style=social)](https://github.com/Ibrahem-Khaled/smart-letter-guide/watchers)
 
 </div>
