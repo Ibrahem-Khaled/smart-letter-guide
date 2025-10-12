@@ -251,7 +251,18 @@ export class VoiceSdkClient {
           this.micStream?.getTracks().forEach((track) => {
             try { track.stop(); } catch {}
           });
-          this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          // Request low-latency mic constraints where supported
+          this.micStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+              channelCount: 1,
+              sampleRate: 48000,
+              sampleSize: 16,
+              latency: 0.01
+            } as any
+          });
         } catch (err) {
           console.warn('Failed to acquire shared microphone stream, falling back to transport default.', err);
           this.micStream = null;
@@ -361,7 +372,7 @@ export class VoiceSdkClient {
         config: {
           turnDetection: {
             type: 'semantic_vad',
-            eagerness: 'medium',
+            eagerness: 'high',
             createResponse: true,
             interruptResponse: true,
           },

@@ -266,10 +266,15 @@ export default function App() {
         waitForStudentResponse: async ({ timeoutMs }: { timeoutMs?: number } = {}) => {
           const effectiveTimeout = typeof timeoutMs === 'number' ? timeoutMs : 8000;
           setIsWaitingForStudentResponse(true);
+          // Duck output audio while listening to reduce echo/latency
+          const audioEl = audioRef.current;
+          const prevVolume = audioEl ? audioEl.volume : 1;
+          if (audioEl) audioEl.volume = 0.2;
           try {
             const response = await clientRef.current?.awaitUserSpeech(effectiveTimeout);
             return response || '';
           } finally {
+            if (audioEl) audioEl.volume = prevVolume;
             setIsWaitingForStudentResponse(false);
           }
         },

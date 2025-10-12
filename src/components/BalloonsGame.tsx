@@ -8,6 +8,7 @@ interface Balloon {
   y: number;
   color: string;
   popped: boolean;
+  particles?: Array<{ id: number; x: number; y: number; vx: number; vy: number; life: number; }>;
 }
 
 interface BalloonsGameProps {
@@ -33,10 +34,15 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
 
   // Generate a single random balloon
   const generateRandomBalloon = (forceTarget = false): Balloon => {
-    const allLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(letter => letter !== normalizedTargetLetter);
+    const allCapitalLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').filter(letter => letter !== normalizedTargetLetter);
+    const allSmallLetters = 'abcdefghijklmnopqrstuvwxyz'.split('').filter(letter => letter !== normalizedTargetLetter.toLowerCase());
+    
+    // Combine both capital and small letters
+    const allLetters = [...allCapitalLetters, ...allSmallLetters];
+    
     const shouldUseTarget = forceTarget || Math.random() < TARGET_LETTER_PROBABILITY;
     const letter = shouldUseTarget
-      ? normalizedTargetLetter
+      ? (Math.random() < 0.5 ? normalizedTargetLetter : normalizedTargetLetter.toLowerCase())
       : allLetters[Math.floor(Math.random() * allLetters.length)] ?? normalizedTargetLetter;
 
     return {
@@ -53,7 +59,10 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
   const addNewBalloon = () => {
     if (gameStarted && !gameEnded) {
       setBalloons(prev => {
-        const activeTargets = prev.filter(balloon => !balloon.popped && balloon.letter === normalizedTargetLetter).length;
+        const activeTargets = prev.filter(balloon => 
+          !balloon.popped && 
+          (balloon.letter === normalizedTargetLetter || balloon.letter === normalizedTargetLetter.toLowerCase())
+        ).length;
         const newBalloon = generateRandomBalloon(activeTargets === 0);
         return [...prev, newBalloon];
       });
@@ -64,15 +73,48 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
   const moveBalloons = () => {
     setBalloons(prev => prev.map(balloon => ({
       ...balloon,
-      y: balloon.y - 2 // Move up by 2 pixels
+      y: balloon.y - 1 // Move up by 1 pixel (slower movement)
     })).filter(balloon => balloon.y > -10)); // Remove balloons that are off-screen
+  };
+
+  // Update particles
+  const updateParticles = () => {
+    setBalloons(prev => prev.map(balloon => {
+      if (balloon.particles && balloon.particles.length > 0) {
+        const updatedParticles = balloon.particles
+          .map(particle => ({
+            ...particle,
+            x: particle.x + particle.vx,
+            y: particle.y + particle.vy,
+            life: particle.life - 0.05
+          }))
+          .filter(particle => particle.life > 0);
+        
+        return { ...balloon, particles: updatedParticles };
+      }
+      return balloon;
+    }));
   };
 
   // Pop balloon
   const popBalloon = (balloonId: number) => {
     setBalloons(prev => prev.map(balloon => {
       if (balloon.id === balloonId && !balloon.popped) {
-        if (balloon.letter === targetLetter) {
+        // Check if it's the target letter (both capital and small)
+        const isTargetLetter = balloon.letter === normalizedTargetLetter || 
+                              balloon.letter === normalizedTargetLetter.toLowerCase();
+        
+        // Create particles for explosion effect
+        const particles = Array.from({ length: 8 }, (_, i) => ({
+          id: i,
+          x: balloon.x,
+          y: balloon.y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 1
+        }));
+        
+        if (isTargetLetter) {
           setScore(prev => prev + 10);
           setBalloonsPopped(prev => prev + 1);
         } else {
@@ -86,7 +128,7 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
             return newLives;
           });
         }
-        return { ...balloon, popped: true };
+        return { ...balloon, popped: true, particles };
       }
       return balloon;
     }));
@@ -129,9 +171,13 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
       // Move balloons every 50ms
       const movementInterval = setInterval(moveBalloons, 50);
       
+      // Update particles every 16ms (60fps)
+      const particleInterval = setInterval(updateParticles, 16);
+      
       return () => {
         clearInterval(balloonInterval);
         clearInterval(movementInterval);
+        clearInterval(particleInterval);
       };
     }
   }, [gameStarted, gameEnded]);
@@ -148,7 +194,7 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
     <div className="balloons-game">
       <div className="game-header">
         <h3>🎈 لعبة البالونات - حرف {targetLetter}</h3>
-        <p>انقر على البالونات التي تحتوي على حرف {targetLetter}</p>
+        <p>انقر على البالونات التي تحتوي على حرف {targetLetter} أو {targetLetter.toLowerCase()}</p>
         <p className="lives-info">الأرواح المتبقية: {lives}</p>
       </div>
 
@@ -184,18 +230,33 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
       {gameStarted && (
         <div className="game-area" ref={gameAreaRef}>
           {balloons.map(balloon => (
-            <div
-              key={balloon.id}
-              className={`balloon ${balloon.popped ? 'popped' : ''}`}
-              style={{
-                left: `${balloon.x}%`,
-                top: `${balloon.y}%`,
-                backgroundColor: balloon.color,
-                animationDelay: `${balloon.id * 0.1}s`
-              }}
-              onClick={() => !balloon.popped && popBalloon(balloon.id)}
-            >
-              <span className="balloon-letter">{balloon.letter}</span>
+            <div key={balloon.id}>
+              <div
+                className={`balloon ${balloon.popped ? 'popped' : ''}`}
+                style={{
+                  left: `${balloon.x}%`,
+                  top: `${balloon.y}%`,
+                  backgroundColor: balloon.color,
+                  animationDelay: `${balloon.id * 0.1}s`
+                }}
+                onClick={() => !balloon.popped && popBalloon(balloon.id)}
+              >
+                <span className="balloon-letter">{balloon.letter}</span>
+              </div>
+              {/* Render particles */}
+              {balloon.particles && balloon.particles.map(particle => (
+                <div
+                  key={`${balloon.id}-particle-${particle.id}`}
+                  className="particle"
+                  style={{
+                    left: `${particle.x}%`,
+                    top: `${particle.y}%`,
+                    backgroundColor: balloon.color,
+                    opacity: particle.life,
+                    transform: `scale(${particle.life})`
+                  }}
+                />
+              ))}
             </div>
           ))}
         </div>

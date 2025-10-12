@@ -83,8 +83,18 @@ export class RealtimeClient {
         }
       };
 
-      // 3) Capture mic and add to connection
-      const mic = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 3) Capture mic and add to connection (prefer low-latency constraints)
+      const mic = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000,
+          sampleSize: 16,
+          latency: 0.01
+        } as any
+      });
       this.micStream = mic;
       for (const track of mic.getAudioTracks()) {
         pc.addTrack(track, mic);

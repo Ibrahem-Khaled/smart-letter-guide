@@ -111,6 +111,7 @@
   align-items: center;
   justify-content: center;
   animation: float 3s ease-in-out infinite;
+  border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .balloon:hover {
@@ -118,10 +119,6 @@
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
-.balloon.popped {
-  animation: pop 0.5s ease-out forwards;
-  pointer-events: none;
-}
 
 .balloon-letter {
   font-size: 1.5rem;
@@ -224,17 +221,56 @@
 
 @keyframes pop {
   0% {
-    transform: scale(1);
+    transform: scale(1) rotate(0deg);
     opacity: 1;
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(1.3) rotate(5deg);
+    opacity: 0.9;
+    filter: brightness(1.2);
   }
   50% {
-    transform: scale(1.2);
-    opacity: 0.7;
+    transform: scale(1.1) rotate(-3deg);
+    opacity: 0.6;
+    filter: brightness(1.5);
+  }
+  75% {
+    transform: scale(0.8) rotate(2deg);
+    opacity: 0.3;
+    filter: brightness(2);
+  }
+  100% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+    filter: brightness(3);
+  }
+}
+
+@keyframes disappear {
+  0% {
+    transform: scale(1);
+    opacity: 1;
   }
   100% {
     transform: scale(0);
     opacity: 0;
   }
+}
+
+.balloon.popped {
+  animation: pop 0.8s ease-out forwards, disappear 0.8s ease-out 0.8s forwards;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  pointer-events: none;
+  transition: all 0.1s ease-out;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
 }
 
 @media (max-width: 768px) {
