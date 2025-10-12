@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import './MultipleChoiceGame.css';
+import { LETTERS } from '../letters';
+
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1505482692512-d6d588f0e3e0?w=200&h=200&fit=crop&auto=format';
 
 interface Question {
   id: number;
@@ -27,21 +30,80 @@ export const MultipleChoiceGame: React.FC<MultipleChoiceGameProps> = ({ targetLe
   const [writtenAnswer, setWrittenAnswer] = useState('');
   const [isWritingCorrect, setIsWritingCorrect] = useState(false);
 
+  const imageQuestion = useMemo(() => {
+    const uppercaseLetter = targetLetter.toUpperCase();
+    const letterData = LETTERS[uppercaseLetter];
+
+    const availableWords = Object.entries(LETTERS)
+      .flatMap(([letterKey, data]) =>
+        data.words.slice(0, 3).map(word => ({
+          letterKey,
+          label: word.arabic,
+          image: word.customImage || word.image,
+        }))
+      )
+      .filter(word => word.image);
+
+    const correctWord = letterData?.words.find(word => word.customImage || word.image);
+
+    if (!correctWord || (!correctWord.image && !correctWord.customImage)) {
+      return {
+        options: ['تفاحة', 'قطة', 'موزة', 'شمس'],
+        images: [
+          'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200&h=200&fit=crop',
+          'https://images.unsplash.com/photo-1505482692512-d6d588f0e3e0?w=200&h=200&fit=crop'
+        ],
+        correctAnswer: 0,
+      };
+    }
+
+    const distractors = availableWords
+      .filter(word => word.letterKey !== uppercaseLetter)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+
+    const correctImage = correctWord.customImage || correctWord.image;
+
+    const fallbackDistractors = [
+      { label: 'تفاحة', image: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200&h=200&fit=crop' },
+      { label: 'قطة', image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop' },
+      { label: 'موزة', image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200&h=200&fit=crop' },
+      { label: 'شمس', image: 'https://images.unsplash.com/photo-1505482692512-d6d588f0e3e0?w=200&h=200&fit=crop' }
+    ];
+
+    const usedLabels = new Set([correctWord.arabic, ...distractors.map(word => word.label)]);
+
+    while (distractors.length < 3) {
+      const nextFallback = fallbackDistractors.find(item => !usedLabels.has(item.label));
+      if (!nextFallback) break;
+      distractors.push({ letterKey: 'fallback', label: nextFallback.label, image: nextFallback.image });
+      usedLabels.add(nextFallback.label);
+    }
+
+    const combined = [
+      { label: correctWord.arabic, image: correctImage ?? FALLBACK_IMAGE, isCorrect: true },
+      ...distractors.slice(0, 3).map(word => ({ label: word.label, image: word.image ?? FALLBACK_IMAGE, isCorrect: false })),
+    ].sort(() => Math.random() - 0.5);
+
+    const options = combined.map(item => item.label);
+    const images = combined.map(item => item.image);
+    const correctAnswer = combined.findIndex(item => item.isCorrect);
+
+    return { options, images, correctAnswer };
+  }, [targetLetter]);
+
   // Generate questions based on target letter
   const generateQuestions = (): Question[] => {
     const letterQuestions: Question[] = [
       {
         id: 1,
-        question: `اضغط على الصور التي تبدأ بحرف ${targetLetter}`,
+        question: `اختر الصورة التي تبدأ بحرف ${targetLetter}`,
         type: 'image',
-        options: ['تفاحة', 'قطة', 'موزة', 'نملة'],
-        images: [
-          'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=200&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200&h=200&fit=crop',
-          'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=200&h=200&fit=crop'
-        ],
-        correctAnswer: targetLetter === 'A' ? 0 : targetLetter === 'C' ? 1 : 2
+        options: imageQuestion.options,
+        images: imageQuestion.images,
+        correctAnswer: imageQuestion.correctAnswer
       },
       {
         id: 2,

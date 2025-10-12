@@ -175,8 +175,9 @@
   width: 80px;
   height: 80px;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: 12px;
   margin-bottom: 10px;
+  background: #1a1a1a;
 }
 
 .option {
@@ -408,6 +409,7 @@
   .option-image {
     width: 60px;
     height: 60px;
+    background: #1a1a1a;
   }
   
   .game-actions {
