@@ -271,11 +271,7 @@ export class VoiceSdkClient {
         execute: async ({ letter }: { letter: string }) => { 
           await this.waitForAgentSilence(2500);
           await new Promise((resolve) => window.setTimeout(resolve, 200));
-          const uppercaseLetter = letter.toUpperCase();
-          const played = await this.uiHooks.playLetterRecording?.(uppercaseLetter);
-          if (played !== false) {
-            await this.session?.invokeTool?.('ui_update_repetition_count', { letter: uppercaseLetter, count: 0 });
-          }
+          await this.uiHooks.playLetterRecording?.(letter.toUpperCase());
         }
       });
       const UiStopLetterRecording = tool<typeof UiClearParams, RealtimeContextData>({
