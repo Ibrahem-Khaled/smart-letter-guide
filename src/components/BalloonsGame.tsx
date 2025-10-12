@@ -57,24 +57,42 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
 
   // Add new balloon
   const addNewBalloon = () => {
-    if (gameStarted && !gameEnded) {
-      setBalloons(prev => {
-        const activeTargets = prev.filter(balloon => 
-          !balloon.popped && 
-          (balloon.letter === normalizedTargetLetter || balloon.letter === normalizedTargetLetter.toLowerCase())
-        ).length;
-        const newBalloon = generateRandomBalloon(activeTargets === 0);
-        return [...prev, newBalloon];
-      });
+    if (!gameStarted || gameEnded) {
+      return;
     }
+
+    setBalloons(prev => {
+      const activeTargets = prev.filter(balloon => 
+        !balloon.popped && 
+        (balloon.letter === normalizedTargetLetter || balloon.letter === normalizedTargetLetter.toLowerCase())
+      ).length;
+
+      const nextBalloons = prev.filter(balloon => !balloon.popped || (balloon.particles && balloon.particles.length > 0));
+
+      if (activeTargets === 0) {
+        const newBalloon = generateRandomBalloon(true);
+        return [...nextBalloons, newBalloon];
+      }
+
+      if (nextBalloons.length >= 10) {
+        return nextBalloons;
+      }
+
+      const newBalloon = generateRandomBalloon();
+      return [...nextBalloons, newBalloon];
+    });
   };
 
   // Move balloons upward
   const moveBalloons = () => {
-    setBalloons(prev => prev.map(balloon => ({
-      ...balloon,
-      y: balloon.y - 1 // Move up by 1 pixel (slower movement)
-    })).filter(balloon => balloon.y > -10)); // Remove balloons that are off-screen
+    setBalloons(prev => prev
+      .map(balloon => (
+        balloon.popped
+          ? balloon
+          : { ...balloon, y: balloon.y - 1 }
+      ))
+      .filter(balloon => balloon.popped || balloon.particles || balloon.y > -10)
+    );
   };
 
   // Update particles
@@ -103,17 +121,7 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
         // Check if it's the target letter (both capital and small)
         const isTargetLetter = balloon.letter === normalizedTargetLetter || 
                               balloon.letter === normalizedTargetLetter.toLowerCase();
-        
-        // Create particles for explosion effect
-        const particles = Array.from({ length: 8 }, (_, i) => ({
-          id: i,
-          x: balloon.x,
-          y: balloon.y,
-          vx: (Math.random() - 0.5) * 4,
-          vy: (Math.random() - 0.5) * 4,
-          life: 1
-        }));
-        
+
         if (isTargetLetter) {
           setScore(prev => prev + 10);
           setBalloonsPopped(prev => prev + 1);
@@ -128,6 +136,21 @@ export const BalloonsGame: React.FC<BalloonsGameProps> = ({ targetLetter, onGame
             return newLives;
           });
         }
+        
+        // Create particles for explosion effect
+        const particles = Array.from({ length: 8 }, (_, i) => ({
+          id: i,
+          x: balloon.x,
+          y: balloon.y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 1
+        }));
+        
+        window.setTimeout(() => {
+          setBalloons(current => current.filter(b => b.id !== balloonId));
+        }, 1200);
+
         return { ...balloon, popped: true, particles };
       }
       return balloon;

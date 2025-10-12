@@ -67,7 +67,85 @@ function toYouTubeEmbedUrl(raw: string): string | null {
   }
 }
 
+const requiredPassword = import.meta.env.VITE_PLATFORM_PASSWORD;
+
 export default function App() {
+  const [isAuthorized, setIsAuthorized] = useState<boolean>(() => {
+    if (!requiredPassword) return true;
+    try {
+      const storedToken = localStorage.getItem('va_auth_token');
+      if (!storedToken) return false;
+      const parsed = JSON.parse(storedToken);
+      if (!parsed?.ts || !parsed?.token) return false;
+      if (parsed.token !== requiredPassword) return false;
+      const ageMs = Date.now() - parsed.ts;
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      if (ageMs > oneDayMs) {
+        localStorage.removeItem('va_auth_token');
+        return false;
+      }
+      return true;
+    } catch {
+      localStorage.removeItem('va_auth_token');
+      return false;
+    }
+  });
+  const [passwordInput, setPasswordInput] = useState('');
+
+  useEffect(() => {
+    if (!requiredPassword) {
+      setIsAuthorized(true);
+    }
+  }, []);
+
+  const handleAuthorize = () => {
+    if (requiredPassword && passwordInput.trim() === requiredPassword) {
+      setIsAuthorized(true);
+      localStorage.setItem('va_auth_token', JSON.stringify({ token: requiredPassword, ts: Date.now() }));
+    } else {
+      alert('كلمة السر غير صحيحة. حاول مرة أخرى.');
+      setPasswordInput('');
+    }
+  };
+
+  if (!isAuthorized) {
+    return (
+      <div className="app locked">
+        <Particles
+          particleColors={['#ffffff', '#ffffff']}
+          particleCount={120}
+          particleSpread={8}
+          speed={0.08}
+          particleBaseSize={80}
+          moveParticlesOnHover={false}
+          alphaParticles={false}
+          disableRotation={false}
+        />
+        <div className="lock-screen glass-lg">
+          <div className="lock-icon">🔒</div>
+          <h1 className="lock-title">منصة روبو التعليمية</h1>
+          <p className="lock-subtitle">أدخل كلمة السر للمتابعة</p>
+          <input
+            type="password"
+            className="lock-input"
+            value={passwordInput}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleAuthorize();
+              }
+            }}
+            onChange={(e) => setPasswordInput(e.target.value)}
+            placeholder="••••••••"
+          />
+          <button className="btn btn-primary" onClick={handleAuthorize}>
+            فتح المنصة
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [mic, setMic] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
@@ -218,6 +296,7 @@ export default function App() {
           setSongUrl(undefined);
           setHasContent(true);
           setStage('writing');
+          setMessage(`مرحلة السابورة: دلوقتي هنكتب حرف ${letter}!`);
         },
         showWords: (ws) => {
           setWords(ws);
@@ -240,7 +319,7 @@ export default function App() {
           setHasContent(true);
           setStage('song');
         },
-        showGameSelection: () => {
+        showGameSelection: async () => {
           setShowGameSelection(true);
           setShowBoth(false);
           setShowBoard(false);
@@ -249,6 +328,19 @@ export default function App() {
           setSelectedGame(null);
           setHasContent(true);
           setStage('outro');
+          setMessage('دلوقتي نختار لعبة ونستمتع، سأترككم تلعبوا وتتدربوا مع بعض!');
+
+          if (clientRef.current) {
+            try {
+              await clientRef.current.disconnect();
+            } catch (error) {
+              console.error('Failed to disconnect after game intro:', error);
+            }
+          }
+          clientRef.current = null;
+          setStatus('disconnected');
+          setIsSpeaking(false);
+          setMic(false);
         },
         setLetter: (L) => { const U = (L.toUpperCase() as keyof typeof LETTERS); if (LETTERS[U]) { setLetter(U as any); setWords(LETTERS[U].words); } },
         updateRepetitionCount: (letter: string, count: number) => {
@@ -790,7 +882,7 @@ export default function App() {
               <div className="content-panel animate-scaleIn">
                 <h3 className="content-title">🎮 اختر لعبة للعب</h3>
                 <div className="game-selection-container">
-                  <p className="game-selection-text">رائع! انتهينا من الدرس. الآن يمكنك اختيار لعبة للعب:</p>
+                  <p className="game-selection-text">رائع! انتهينا من الدرس. الآن يمكنك اختيار لعبة للعب، والوكيل الصوتي فصل الاتصال لتكمل اللعبة بحرية.</p>
                   <div className="game-options">
                     <button 
                       className="game-option-btn balloons-option"

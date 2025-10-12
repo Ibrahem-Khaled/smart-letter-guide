@@ -1,3 +1,26 @@
+.lock-screen .btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .app.locked {
+    padding: 1.5rem 1rem;
+  }
+
+  .lock-screen {
+    width: 100%;
+    padding: 32px 24px;
+  }
+
+  .lock-title {
+    font-size: 1.75rem;
+  }
+
+  .lock-subtitle {
+    font-size: 1rem;
+  }
+}
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Cairo:wght@200;300;400;500;600;700;800&display=swap');
 
 @plugin 'tailwindcss-animate';
@@ -163,6 +186,63 @@ body {
   gap: 2rem;
   position: relative;
   /* overflow: hidden; */
+}
+
+.app.locked {
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.lock-screen {
+  position: relative;
+  z-index: 2;
+  max-width: 420px;
+  width: calc(100% - 40px);
+  padding: 40px 30px;
+  border-radius: 24px;
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  text-align: center;
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.lock-icon {
+  font-size: 3rem;
+  margin-bottom: 12px;
+}
+
+.lock-title {
+  margin: 0 0 12px 0;
+  font-size: 2rem;
+  color: #f8fafc;
+}
+
+.lock-subtitle {
+  margin: 0 0 24px 0;
+  font-size: 1.1rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.lock-input {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.65);
+  color: #f1f5f9;
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lock-input:focus {
+  border-color: rgba(96, 165, 250, 0.85);
+  box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.18);
+  outline: none;
 }
 
 /* Header */
