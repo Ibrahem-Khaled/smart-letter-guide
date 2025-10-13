@@ -9,7 +9,6 @@ import { BalloonsGame } from './components/BalloonsGame';
 import { MultipleChoiceGame } from './components/MultipleChoiceGame';
 import { ImageUpload } from './components/ImageUpload';
 import { WordImageUpload } from './components/WordImageUpload';
-import { AudioRecorder } from './components/AudioRecorder';
 
 type ImageSelectionOption = {
   id: string;
@@ -168,7 +167,6 @@ export default function App() {
   const [selectedGame, setSelectedGame] = useState<'balloons' | 'multiple-choice' | null>(null);
   const [letterImages, setLetterImages] = useState<Record<string, { capitalImage?: string; smallImage?: string }>>({});
   const [wordImages, setWordImages] = useState<Record<string, Record<string, string>>>({});
-  const [letterRecordings, setLetterRecordings] = useState<Record<string, string>>({});
   const [letterRepetitionCount, setLetterRepetitionCount] = useState<Record<string, number>>({});
   const [isWaitingForStudentResponse, setIsWaitingForStudentResponse] = useState(false);
   // lesson stage tracking for progress bar and gating song to final stage
@@ -349,12 +347,6 @@ export default function App() {
         resetRepetitionCount: (letter: string) => {
           resetLetterRepetitionCount(letter);
         },
-        playLetterRecording: async (letter: string) => {
-          await playLetterRecordingForLetter(letter);
-        },
-        stopLetterRecording: async () => {
-          await stopLetterRecordingForLetter();
-        },
         waitForStudentResponse: async ({ timeoutMs }: { timeoutMs?: number } = {}) => {
           const effectiveTimeout = typeof timeoutMs === 'number' ? timeoutMs : 8000;
           setIsWaitingForStudentResponse(true);
@@ -458,33 +450,6 @@ export default function App() {
     return wordImages[letter]?.[word];
   };
 
-  const updateLetterRecording = (letter: string, audioBlob: Blob | null) => {
-    if (audioBlob) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      setLetterRecordings(prev => ({
-        ...prev,
-        [letter]: audioUrl
-      }));
-    } else {
-      setLetterRecordings(prev => {
-        const newRecordings = { ...prev };
-        if (newRecordings[letter]) {
-          URL.revokeObjectURL(newRecordings[letter]);
-          delete newRecordings[letter];
-        }
-        return newRecordings;
-      });
-    }
-  };
-
-  const getLetterRecording = (letter: string): string | undefined => {
-    return letterRecordings[letter];
-  };
-
-  const hasLetterRecording = (letter: string): boolean => {
-    return !!letterRecordings[letter];
-  };
-
   const getLetterRepetitionCount = (letter: string): number => {
     return letterRepetitionCount[letter] || 0;
   };
@@ -501,20 +466,6 @@ export default function App() {
       ...prev,
       [letter]: 0
     }));
-  };
-
-  const playLetterRecordingForLetter = async (letter: string) => {
-    const recordingUrl = getLetterRecording(letter);
-    if (recordingUrl && clientRef.current) {
-      await clientRef.current.waitForAgentSilence?.(2000);
-      await new Promise(resolve => setTimeout(resolve, 250));
-      await clientRef.current.playLetterRecording(recordingUrl);
-      await new Promise(resolve => setTimeout(resolve, 400));
-    }
-  };
-
-  const stopLetterRecordingForLetter = async () => {
-    await clientRef.current?.stopLetterRecording();
   };
 
 
@@ -994,15 +945,6 @@ export default function App() {
               </div>
 
               <div className="control-section">
-                <div className="section-label">تسجيل نطق حرف {letter}</div>
-                <AudioRecorder
-                  letter={letter}
-                  currentRecording={getLetterRecording(letter)}
-                  onRecordingChange={(audioBlob) => updateLetterRecording(letter, audioBlob)}
-                />
-              </div>
-
-              <div className="control-section">
                 <div className="section-label">صور الحرف {letter}</div>
                 <div className="letter-images-section">
                   <ImageUpload
@@ -1067,21 +1009,9 @@ export default function App() {
 
               <div className="control-section">
                 <div className="section-label">إدارة الدرس</div>
-                {!hasLetterRecording(letter) && (
-                  <div className="lesson-warning">
-                    <div className="warning-icon">⚠️</div>
-                    <div className="warning-text">
-                      يجب تسجيل نطق حرف {letter} قبل بدء الدرس
-                    </div>
-                  </div>
-                )}
                 <button
-                  className={`btn btn-large ${hasLetterRecording(letter) ? 'btn-success' : 'btn-secondary'}`}
+                  className={`btn btn-large ${status === 'connected' ? 'btn-success' : 'btn-secondary'}`}
                   onClick={async () => {
-                    if (!hasLetterRecording(letter)) {
-                      alert(`يجب تسجيل نطق حرف ${letter} أولاً قبل بدء الدرس`);
-                      return;
-                    }
                     try {
                       // Reset repetition count
                       updateLetterRepetitionCount(letter, 0);
@@ -1104,9 +1034,9 @@ export default function App() {
                       alert('حدث خطأ في بدء الدرس');
                     }
                   }}
-                  disabled={status !== 'connected' || !hasLetterRecording(letter)}
+                  disabled={status !== 'connected'}
                 >
-                  {hasLetterRecording(letter) ? '🚀 ابدأ الدرس' : '⚠️ يجب تسجيل النطق أولاً'}
+                  {status === 'connected' ? '🚀 ابدأ الدرس' : '⚠️ اتصل أولاً'}
                 </button>
               </div>
 
